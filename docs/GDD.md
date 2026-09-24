@@ -1,6 +1,6 @@
 # Matematico — Dokument Projektu Gry (GDD)
 
-**Wersja:** 0.2 (zaakceptowana kierunkowo; decyzje rodzica z 2026-09-24 wprowadzone)
+**Wersja:** 0.3 (walka kartami, stała kamera, handlarz kart; dane z pełnych tekstów S3, S8, S19)
 **Data:** 2026-09-24
 **Status:** podstawa do implementacji MVP
 
@@ -25,7 +25,7 @@ Dokument miesza dwa rodzaje zdań:
 
 Skala pewności: 1 zgadywanie · 2 pojedyncza słaba przesłanka · 3 spójne rozumowanie, brak danych · 4 dane pośrednie · 5 mocne, powtarzalne dane · 6 trudne do zakwestionowania.
 
-Wszystkie źródła literaturowe w tym dokumencie są na poziomie **[ABSTRAKT]** lub **[WTÓRNE]** — nie czytałem pełnych tekstów.
+Źródła literaturowe są na poziomie **[ABSTRAKT]** lub **[WTÓRNE]**, z wyjątkiem S3, S8 i S19 — te trzy przeczytano w pełnym tekście (v0.3), a liczby sprawdzono niezależnie drugi raz.
 
 ### 0.2. Zmiany w wersji 0.2
 
@@ -35,7 +35,16 @@ Decyzje rodzica: „rób jak uważasz za słuszne; na początek bez pada, sterow
 2. **Przeciwnicy to brainroty** — absurdalne hybrydy zwierząt, jedzenia i przedmiotów z pseudo-włoskimi, rymowanymi imionami. Po pokonaniu **zamieniają się w brainglamy** (odczarowana, błyszcząca wersja), które trafiają do Galerii w bazie (sekcja 7.6).
 3. Otwarte pytania z v0.1 rozstrzygnięte według moich rekomendacji (sekcja 24).
 
-### 0.3. Zakres
+### 0.3. Zmiany w wersji 0.3
+
+Decyzje rodzica: „kostki ze stałą kamerą”, „walka kartami”, „wymiana kart u handlarza, później kody między tabletami”; do tego trzy artykuły dostarczone w pełnym tekście (S3, S8, S19).
+
+1. **Walka kartami zamiast QTE** (sekcja 7 przepisana). Walka jest turowa; każda zagrana karta wymaga rozwiązania działania. Domyślnie **bez limitu czasu**.
+2. **Stała kamera** z góry pod kątem (jak w Minecraft Dungeons): jedna gałka, bez obracania kamery (sekcje 14, 16).
+3. **Karty** dają stworki (przy złapaniu i awansie) i brainglamy (przy każdej przemianie). **Handlarz Kartonini** w bazie wymienia duplikaty i sprzedaje karty za „złożone sumy” cyfr (sekcja 9.6).
+4. Sekcja 26 zaktualizowana o dane z pełnych tekstów.
+
+### 0.4. Zakres
 
 Dokument opisuje całą grę docelową, ale szczegółowo rozpisuje tylko **MVP** (baza + Łąka + dungeon). Kolejne krainy są opisane na poziomie założeń.
 
@@ -98,7 +107,7 @@ Dokument opisuje całą grę docelową, ale szczegółowo rozpisuje tylko **MVP*
    │ brainglamów  │                  ┌──────────────┐   ┌──────────┐ │
    └──────────────┘                  │   DUNGEON    │──▶│  ŁUP +   │─┘
           ▲   sprzęt, cyfry,         │ brainroty,   │   │ BRAINGLAM│
-          └───brainglamy─────────────│ walki QTE,   │   │ sprzęt,  │
+          └───brainglamy─────────────│ walki kartami│   │ sprzęt,  │
                                      │ boss         │   │ cyfry    │
                                      └──────────────┘   └──────────┘
 ```
@@ -290,74 +299,75 @@ Wartości domyślne przed kalibracją [ZAŁOŻENIE]: do 10 → 0.6; przekroczeni
 
 ---
 
-## 7. Walka (QTE w zwolnionym tempie)
-
-### 7.1. Przebieg tury
-
-1. **Tura gracza:** wybór akcji (menu 2–4 ikon).
-2. **Zamach w zwolnionym tempie:** świat zwalnia do 10% prędkości, kamera robi zbliżenie, tło się przyciemnia i rozmywa.
-3. **QTE:** duże działanie na środku, 3–4 odpowiedzi jako **duże przyciski dotykowe w układzie rombu** (ten sam układ posłuży później przyciskom pada: A dół, B prawo, X lewo, Y góra).
-4. **Rozstrzygnięcie:** efekt zależy od wyniku (tabela 7.3). Po błędzie — podpowiedź (5.4).
-5. **Tura brainrota:** zapowiedź ataku (animacja zamachu, ikona „zwykły” / „mocny”) → QTE obrony.
+## 7. Walka kartami
 
 Przeciwnikiem jest zawsze **brainrot** (sekcja 7.6). Jego pasek życia to pasek **Czaru** — trafienia zdejmują zaczarowanie.
 
-Spokojne tło w QTE: [HIPOTEZA, pewność 2] bogata wizualnie gra może zwiększać lęk u dzieci z niższą wzrokowo-przestrzenną pamięcią roboczą. Podstawa: [FAKT][ABSTRAKT] 40 drugoklasistów, bez grupy kontrolnej, wzrost lęku u dzieci z niższą pojemnością tej pamięci ([S10]). Słabe dane, ale przyciemnienie tła nic nie kosztuje.
+### 7.1. Przebieg walki
 
-### 7.2. Akcje i działania
+1. **Start:** talia jest tasowana, dziecko dobiera **4 karty** na rękę.
+2. **Zapowiedź:** nad brainrotem widać jego **następny ruch** (np. „Cios 10”, „Mocny cios 22”, „2 × cios 6”). Dziecko wie, czy warto się osłonić.
+3. **Tura dziecka:** ma **2 punkty energii** (gwiazdki). Karta kosztuje 1 albo 2. Dotknięcie karty → karta powiększa się i **dopiero wtedy pokazuje działanie** → odpowiedź z 3–4 opcji (duże przyciski).
+4. **Rozstrzygnięcie** karty zależy od odpowiedzi (tabela 7.3). Po błędzie — podpowiedź (5.4).
+5. Dziecko gra kolejną kartę (jeśli ma energię) albo naciska **„Koniec tury”**.
+6. **Tura brainrota:** wykonuje zapowiedziany ruch; zebrana w tej turze **tarcza** pochłania obrażenia. Tarcza znika po turze brainrota.
+7. Nowa tura: energia wraca do 2, ręka uzupełnia się do 4 kart, nowa zapowiedź. Pusta talia → przetasowanie odrzuconych.
 
-| Akcja | Docelowo (cała gra) | W MVP (Łąka) | Wymaga stworka |
+**Dlaczego działanie widać dopiero po zagraniu karty:** [HIPOTEZA, pewność 3] gdyby działanie było widoczne na karcie w ręce, dziecko mogłoby omijać trudne zadania. Podstawa: [FAKT][ABSTRAKT] w badaniu uczniów klas 3–4, którzy sami wybierali trudność zadań (n=26), lęk matematyczny wiązał się z unikaniem trudnych zadań ([S20]). Dziecko wybiera więc **strategię** (atak czy tarcza), a działanie przydziela algorytm adaptacji (sekcja 6).
+
+Spokojne tło w czasie odpowiedzi: [HIPOTEZA, pewność 2] bogata wizualnie gra może zwiększać lęk u dzieci z niższą wzrokowo-przestrzenną pamięcią roboczą ([S10]: 40 drugoklasistów, bez grupy kontrolnej). Przyciemnienie tła nic nie kosztuje, więc zostaje.
+
+### 7.2. Rodzaje kart i działania
+
+| Rodzaj karty | Efekt | Docelowo (cała gra) | W MVP (Łąka) |
 |---|---|---|---|
-| Atak prosty | dodawanie (8+7) | dodawanie do 10/20 | Plusik |
-| Atak mocny | mnożenie (2×9) | podwajanie (7+7) | Bliźniak (Łąka) / Razik (Zamek) |
-| Obrona | odejmowanie (9−3) | dopełnianie (6 + □ = 10) | zawsze dostępna; Dopełniak/Minusiak ją wzmacnia |
-| Obrona przed mocnym atakiem | dzielenie (4:2) | trzy składniki (4+6+3) | zawsze dostępna; Koniczynek/Dzielnik ją wzmacnia |
+| **Atak** | zdejmuje Czar | dodawanie (8+7) | dodawanie do 10/20 (+ przekraczanie 10 w Ł4) |
+| **Mocny atak** (koszt 2) | dużo Czaru | mnożenie (2×9) | podwajanie (7+7) |
+| **Tarcza** | tarcza na turę brainrota | odejmowanie (9−3) | dopełnianie (6 + □ = 10) |
+| **Wielka tarcza** | duża tarcza | dzielenie (4:2) | trzy składniki (4+6+3) |
+| **Specjalne** (brainglamy) | leczenie, osłabienie, kilka ciosów, atak + tarcza | wg krainy | pula ataku lub tarczy |
 
-Ataki **odblokowuje** stworek. Obrony są dostępne zawsze (nie można zostać bez obrony), a stworek daje +20% bloku i swój bonus.
+Pula działań karty zależy od **rodzaju karty** i **etapu krainy** (sekcja 6.5; moduł `progression`). Opcja rodzica **„Działania w walce: tematyczne / wszystkie cztery”** działa jak dotąd: w trybie „wszystkie” atak = dodawanie i odejmowanie, mocny atak = mnożenie, tarcza = odejmowanie, wielka tarcza = dzielenie.
 
-Atak mocny ma **odnowienie 1 tury**, żeby dziecko mieszało akcje (i działania).
+### 7.3. Wynik odpowiedzi a siła karty
 
-Opcja rodzica: **„Działania w walce: tematyczne krainy / wszystkie cztery”**.
+| Wynik | Mnożnik siły karty (obrażenia, tarcza, leczenie) |
+|---|---|
+| Poprawnie, szybciej niż osobista mediana („krytyk”) | 120% |
+| Poprawnie | 100% |
+| Poprawnie z POPRAWKĄ (sprzęt) | 80% |
+| Poprawnie po limicie (tylko gdy rodzic włączył limit) | 70% |
+| Błędnie | 30% + podpowiedź |
+| Brak odpowiedzi w limicie | 20% |
 
-### 7.3. Wynik a efekt
-
-| Wynik | Atak | Obrona |
-|---|---|---|
-| Poprawnie, szybciej niż osobista mediana | 120% obrażeń („krytyk”) | 100% blok + kontra 5 obrażeń |
-| Poprawnie | 100% | 100% blok |
-| Poprawnie po upływie limitu | 70% | 60% blok |
-| Błędnie | 30% + podpowiedź | 40% blok + podpowiedź |
-| Brak odpowiedzi | 20% | 30% blok |
-
-„Szybko” jest względne do mediany dziecka dla danej kategorii — bonus nie nagradza zgadywania, bo zgadywanie daje średnio mniej niż spokojne liczenie [MECHANIZM, pewność 5: przy 4 opcjach oczekiwana wartość zgadywania = 0.25·120% + 0.75·30% ≈ 52% < 100%].
+„Szybko” jest względne do mediany dziecka dla danej kategorii i **nie jest pokazywane jako odliczanie** — to cicha premia. Zgadywanie się nie opłaca [MECHANIZM, pewność 5: przy 4 opcjach oczekiwana wartość zgadywania = 0,25·120% + 0,75·30% ≈ 52% < 100%].
 
 ### 7.4. Limit czasu (ustawia rodzic)
 
 | Tryb | Działanie |
 |---|---|
-| **Brak** | zwolnione tempo trwa do odpowiedzi; brak wiersza „po limicie” |
-| **Łagodny (adaptacyjny)** | limit = max(8 s, 2,5 × mediana dziecka dla kategorii) |
+| **Brak** (domyślnie) | walka turowa, bez żadnego licznika |
+| **Łagodny (adaptacyjny)** | limit = max(8 s, 2,5 × mediana dziecka dla kategorii); pokazany jako powoli domykający się pierścień |
 | **Stały** | rodzic podaje sekundy osobno dla + − × : |
 
-Czas pokazany jest jako **powoli domykający się pierścień**, nie cyfry odliczania.
+Stan dowodów o presji czasu (po przeczytaniu pełnych tekstów):
 
-Stan dowodów o presji czasu:
+- [FAKT][PEŁNY TEKST] Orbach i in. 2026 ([S3]): analizowano n=289 dzieci z klas 3–4 (średnio ok. 10 lat, Niemcy). Lęk stanowy przed testem na czas i po nim był wyższy niż w pomiarze odniesienia, ale **test na czas i test bez limitu były różnymi narzędziami, w stałej kolejności**, a pomiar odniesienia wykonano na końcu sesji — efekt „presji czasu” jest więc pomieszany z kolejnością i treścią testu (autorzy wymieniają to jako ograniczenie). W matematyce związek lęku z wynikiem był **podobny** w teście na czas i bez limitu; hipoteza o silniejszym związku pod presją czasu się nie potwierdziła. Brak standaryzowanej wielkości efektu.
+- [FAKT][ABSTRAKT] 113 uczniów klas 4–5: jawne vs ukryte mierzenie czasu nie różniło lęku; większy lęk dawały trudniejsze zadania ([S2], [S4]).
+- Boaler (2014) to komentarz, nie badanie ([S1]).
+- **Wniosek:** dowód na szkodliwość limitu czasu jest słabszy, niż sugerował abstrakt S3; dowodu braku szkody też nie ma. Karty są turowe, więc domyślnie **bez limitu** — to nic nie kosztuje dydaktycznie, a usuwa ryzyko. Osobista premia za szybkość zostaje.
 
-- [FAKT][ABSTRAKT] 311 dzieci z klas 3–4: presja czasu zwiększała **stanowy** lęk w matematyce, ale związek lęku z wynikiem w matematyce był taki sam z presją i bez ([S3]).
-- [FAKT][ABSTRAKT] 113 uczniów klas 4–5: jawne vs ukryte mierzenie czasu nie różniło lęku; większy lęk dawały trudniejsze zadania ([S2]); w drugiej analizie tej próby dzieci z trudnościami i wysokim lękiem radziły sobie lepiej przy jawnym mierzeniu czasu ([S4]).
-- Często cytowany tekst Boaler (2014) „timed tests cause math anxiety” to **komentarz**, nie badanie z danymi [FAKT][ABSTRAKT] ([S1]).
-- **Wniosek:** dane są mieszane, a populacje (klasy 3–5, testy szkolne) różnią się od sytuacji „QTE w grze”. Brak dowodu na szkodę ≠ dowód braku szkody.
-
-**Rekomendacja domyślna:** tryb **Brak** podczas kalibracji i pierwszej wyprawy, potem **Łagodny**. Rodzic zmienia to w panelu.
+Decyzja z v0.2 („Łagodny po pierwszej wyprawie”) jest **uchylona**: limit włącza tylko rodzic.
 
 ### 7.5. Liczby (MVP)
 
 | | Wartość |
 |---|---|
 | HP bohatera | 100 (+ pancerz) |
-| Atak prosty / mocny | 10 / 18 obrażeń |
-| Zwykły atak wroga / mocny | 15 / 25 obrażeń |
-| Długość walki | 3–6 tur gracza, 6–10 zadań, ok. 2–3 min [ZAŁOŻENIE: 10–15 s na zadanie z animacją] |
+| Energia na turę | 2 |
+| Ręka | 4 karty (uzupełniana na początku tury) |
+| Talia w walce | wszystkie posiadane karty, maks. 3 kopie jednej karty, maks. 15 kart; nadmiar = zapas do wymiany |
+| Długość walki | 3–5 tur, ok. 2 zadania na turę → 6–10 zadań [ZAŁOŻENIE: 10–15 s na zadanie z animacją] |
 
 **„Porażka” nie istnieje:** HP 0 → „Stworki cię ratują” — bohater wraca na początek bieżącego pokoju z pełnym HP, **brainrot zachowuje zdjęty Czar**, boss zachowuje fazę. Postęp nigdy się nie cofa.
 
@@ -367,8 +377,8 @@ Stan dowodów o presji czasu:
 
 - **Brainrot** = absurdalna hybryda (zwierzę + jedzenie/przedmiot), pseudo-włoskie rymowane imię, przesadne ruchy, zabawny okrzyk przy ataku.
 - Czar = 0 → **przemiana**: brainrot wiruje, rozpada się na świecące kostki (poświata), które składają się w **brainglama** — tę samą postać w wersji odczarowanej: pastelowe/złote kolory, brokat, korona, kokarda lub okulary, spokojniejszy taniec.
-- **Pierwsza przemiana danego gatunku:** brainglam dziękuje, daje **prezent powitalny** (3 cyfry, w tym 1 niezwykła) i trafia do **Galerii Brainglamów** w bazie (chodzi, tańczy po dotknięciu).
-- **Kolejne przemiany** tego samego gatunku: brainglam macha i odchodzi; łup jak zwykle.
+- **Pierwsza przemiana danego gatunku:** brainglam dziękuje, daje **prezent powitalny** (3 cyfry, w tym 1 niezwykła) i **swoją kartę**, i trafia do **Galerii Brainglamów** w bazie (chodzi, tańczy po dotknięciu).
+- **Kolejne przemiany** tego samego gatunku: brainglam macha i daje **kolejną kopię swojej karty** (duplikaty służą do wymiany u handlarza).
 - Licznik Galerii (np. 3/4 na Łące) jest drugim, obok stworków, celem kolekcjonerskim.
 - **Własne projekty postaci.** Brainroty w grze są oryginalne, w konwencji memów „Italian brainrot”, ale bez kopiowania konkretnych istniejących postaci — gra ma własne modele, a imiona są w jednym pliku danych, więc łatwo je zmienić (np. razem z dzieckiem).
 
@@ -390,7 +400,7 @@ Stan dowodów o presji czasu:
 
 **Duplikaty** nie zapychają kolekcji: drugi Plusik = Plusik poziom 2 (więcej cyfr).
 
-Za złapanie: 1 cyfra z puli stworka + wpis w „Liczbopedii”.
+Za złapanie: 1 cyfra z puli stworka + **karty stworka** (sekcja 13.5) + wpis w „Liczbopedii”. Awans stworka na poziom 2 dodaje kopię jego karty, na poziom 3 — wzmacnia jego karty o 25%.
 
 ---
 
@@ -405,6 +415,7 @@ Mała wyspa-obozowisko z kostek:
 - **Kuźnia** — ulepszanie sprzętu za cyfry.
 - **Tablica Wypraw** — wybór krainy (w MVP tylko Łąka).
 - **Galeria Brainglamów** — odczarowane brainroty (sekcja 7.6).
+- **Stół z kartami** — podgląd talii i kolekcji; obok stoi **Handlarz Kartonini** (sekcja 9.6).
 
 ### 9.2. Cyfry — rzadkość
 
@@ -437,6 +448,18 @@ Działania (+ − × :) **nie są zużywane**. Są odblokowywane na stałe przez
 
 1. **Brama** — zużywa cyfry z poprawnego rozwiązania (sekcja 10).
 2. **Kuźnia** — ulepszenie sprzętu kosztuje „złóż sumę”: np. *„złóż 15 z trzech cyfr”* — dziecko wybiera z kolekcji 3 cyfry o sumie 15 (np. 9+5+1 albo 7+7+1). To kolejne ćwiczenie, a nie tylko wydatek.
+
+### 9.5a. Handlarz Kartonini (wymiana kart)
+
+Handlarz to przyjazny brainglam z kartonowego pudła z wąsem. Wymiana jest **z postacią w grze** (gra jest offline, bez serwera). Wymiana między tabletami przez kod/QR — osobny etap po MVP (sekcja 22).
+
+| Oferta | Cena | Co dostajesz |
+|---|---|---|
+| **3 za 1** | 3 zapasowe kopie tej samej karty | 1 losowa karta wyższej rzadkości (najpierw takie, których dziecko nie ma) |
+| **Oferta dnia** (zmienia się co cykl) | „złóż sumę S z N cyfr” (jak w kuźni) | wskazana karta |
+| **Sprzedaż** | 1 zapasowa karta | cyfry: zwykła 2, niezwykła 3, rzadka 4 |
+
+„Zapas” to kopie ponad limit talii (maks. 3 kopie jednej karty w talii). Handlarz nigdy nie zabiera kart z talii bez zapytania.
 
 ### 9.5. Bilans (sprawdzenie rzędu wielkości)
 
@@ -565,6 +588,24 @@ Po przemianie: **Kwiatorra, Królowa Łąki** (brainglam) — kosiarka zamienia 
 
 Łup z bossa: **Złota Sieć** + **Amulet Drugiej Szansy** + 5 cyfr (w tym 1× 0).
 
+Zachowanie brainrotów w walce kartami: zapowiedzi zamiast QTE obrony — Ślimakorro: „Cios 10” co turę; Trzmielini: na zmianę „Cios 8” i „2 × cios 6”; Grzybello: „Cios 10”, co 3. turę „Mocny cios 22”; Kosiarrini: „Cios 12”, mocny 24 wg fazy (faza 3: co 2. turę), w fazie 2 pnącza (każde znika po jednej poprawnie zagranej karcie ataku).
+
+### 13.5. Karty (MVP)
+
+| Karta | Źródło | Rodzaj | Koszt | Siła (poprawnie) | Rzadkość |
+|---|---|---|---|---|---|
+| **Cios Plusika** | start (5 szt.) + Plusik | atak | 1 | 8 Czaru | zwykła |
+| **Tarcza z liści** | start (3 szt.) | tarcza | 1 | 8 tarczy | zwykła |
+| **Tarcza Dopełniaka** | Dopełniak (2 szt.) | tarcza | 1 | 12 tarczy | zwykła |
+| **Podwójny dziób** | Bliźniak (2 szt.) | mocny atak | 2 | 20 Czaru | niezwykła |
+| **Koniczynowa tarcza** | Koniczynek (1 szt.) | wielka tarcza | 1 | 22 tarczy | rzadka |
+| **Lepka kokarda** | Ślimakella Glamella | specjalna: osłabienie | 1 | następny ruch brainrota −50% | niezwykła |
+| **Brokatowy rój** | Trzmielina Brokatina | specjalna: 3 ciosy | 1 | 3 × 4 Czaru | niezwykła |
+| **Perłowy zdrój** | Grzybella Perłella | specjalna: leczenie | 1 | +15 HP | niezwykła |
+| **Królewski bukiet** | Kwiatorra, Królowa Łąki | specjalna: atak + tarcza | 2 | 14 Czaru + 10 tarczy | legendarna |
+
+Talia startowa: 5 × Cios Plusika + 3 × Tarcza z liści (8 kart). Poziom 2 stworka: +1 kopia jego karty; poziom 3: jego karty +25% siły.
+
 ### 13.4. Sprzęt Łąki
 
 | Przedmiot | Slot | Statystyka | Pomoc | Skąd |
@@ -588,12 +629,12 @@ Skrzynie mają zawartość z **gwarancją** (np. każda 3. zwykła skrzynia daje
 
 ### 14.1. Dotyk (MVP)
 
-- **Eksploracja:** wirtualna gałka w lewej części ekranu (pojawia się pod palcem, promień ~70 px CSS), przeciąganie w prawej części = obrót kamery, dotknięcie obiektu = interakcja (bohater podchodzi). Duży przycisk **akcji** w prawym dolnym rogu, pokazuje ikonę tego, co jest w zasięgu (złap / otwórz / wejdź / rozmawiaj).
-- **Walka:** 4 duże przyciski odpowiedzi w **układzie rombu** w prawej dolnej części (zasięg kciuka przy trzymaniu tabletu oburącz); minimalny rozmiar 120×120 px CSS. Menu akcji (atak prosty / mocny) jako duże ikony po lewej.
+- **Kamera stała** (z góry pod kątem ~50°, podąża za bohaterem, nie da się jej obracać). Upraszcza sterowanie: jedna gałka [HIPOTEZA, pewność 4: mniej jednoczesnych zadań motorycznych dla 8-latka].
+- **Eksploracja:** wirtualna gałka w lewej części ekranu (pojawia się pod palcem, promień ~70 px CSS); kierunek gałki = kierunek na ekranie. Duży przycisk **akcji** w prawym dolnym rogu, pokazuje ikonę tego, co jest w zasięgu (złap / otwórz / wejdź / handluj).
+- **Walka kartami:** ręka kart na dole ekranu (karty ≥ 150×210 px CSS), energia (gwiazdki) po lewej, przycisk „Koniec tury” po prawej; odpowiedzi jako 3–4 duże przyciski (min. 120×120 px CSS).
 - **Brama:** przeciąganie kafelków; dotknięcie kafelka na tacy = dołóż na koniec toru; dotknięcie kafelka na torze = zwróć.
 - **Pauza:** przycisk w lewym górnym rogu.
 - Gesty systemowe Androida przy krawędziach — elementy UI z marginesem ≥ 32 px od krawędzi [ZAŁOŻENIE].
-- Wielodotyk: gałka i kamera działają jednocześnie (osobne wskaźniki `pointerId`).
 
 ### 14.2. Klawiatura (tylko do testów deweloperskich)
 
@@ -601,7 +642,7 @@ WASD/strzałki = ruch, spacja/Enter = akcja, 1–4 = odpowiedzi, Esc = pauza.
 
 ### 14.3. Pad (po MVP; standardowe mapowanie Gamepad API)
 
-| Przycisk | Eksploracja | Walka (QTE) | Brama | Menu |
+| Przycisk | Eksploracja | Walka (karty) | Brama | Menu |
 |---|---|---|---|---|
 | Lewa gałka / d-pad | ruch | wybór opcji (alternatywa) | kursor na tacy | nawigacja |
 | Prawa gałka | kamera (orbit) | — | — | — |
@@ -611,7 +652,7 @@ WASD/strzałki = ruch, spacja/Enter = akcja, 1–4 = odpowiedzi, Esc = pauza.
 | Y (góra) | mapa | odpowiedź „góra” | sprawdź | — |
 | Start | pauza | pauza | pauza | — |
 
-Układ przycisków (Xbox / PlayStation / Nintendo) wykrywany z `gamepad.id` z ręczną zmianą; martwa strefa 0,2; blokada 300 ms na wejście po pokazaniu QTE; utrata połączenia → pauza.
+Układ przycisków (Xbox / PlayStation / Nintendo) wykrywany z `gamepad.id` z ręczną zmianą; martwa strefa 0,2; blokada 300 ms na wejście po pokazaniu zadania; utrata połączenia → pauza.
 
 ### 14.4. Wspólna warstwa wejścia
 
@@ -620,7 +661,7 @@ Wszystkie urządzenia mapują się na **akcje abstrakcyjne** (`move`, `look`, `c
 ## 15. UI/UX dla 8-latka
 
 - Mało tekstu, duże ikony, **krótkie zdania** w kwestiach stworków. Opcja: czytanie działań i dialogów na głos (sekcja 25).
-- Działanie w QTE: czcionka ≥ 72 px CSS, wysoki kontrast, cyfry o wyraźnych kształtach (bez 1 podobnego do 7).
+- Działanie w panelu odpowiedzi: czcionka ≥ 72 px CSS, wysoki kontrast, cyfry o wyraźnych kształtach (bez 1 podobnego do 7).
 - Kolor nigdy nie jest jedynym nośnikiem informacji (ikona + kolor).
 - Pozytywny feedback krótki (0,5–1 s), nie przerywa rytmu. Błąd: brak czerwonych „X” na cały ekran, raczej „Prawie! Zobacz, jak to policzyć”.
 - Pauza zawsze dostępna; wyjście z gry w dowolnym momencie zapisuje stan.
@@ -632,6 +673,7 @@ Wszystkie urządzenia mapują się na **akcje abstrakcyjne** (`move`, `look`, `c
 ### 16.1. Styl
 
 - **Świat z kostek**, inspiracja Minecraft/Roblox, ale **własne modele i paleta** (bez zasobów i znaków towarowych tych gier).
+- **Stała kamera** z góry pod kątem (v0.3), jak w grach typu „dungeon crawler” z widokiem izometrycznym-perspektywicznym. Plansze projektowane pod ten widok (brak wysokich ścian zasłaniających bohatera; drzewa przy bohaterze półprzezroczyste).
 - Żywe, lekko pastelowe kolory; kolory w wierzchołkach + mały atlas tekstur 16×16 z filtrem „najbliższy sąsiad” dla detali.
 - **Miękkie światło:** światło półkuli (niebo/ziemia) + jedno słońce kierunkowe; mapowanie tonów (AgX lub ACES) z lekkim podbiciem nasycenia.
 - **Miękkie cienie w czasie rzeczywistym:** mapa cieni PCF od słońca, obszar wokół gracza. [FAKT][WTÓRNE] W nowszych wersjach three.js stała `PCFSoftShadowMap` jest przestarzała w ścieżce WebGL, a `PCFShadowMap` jest teraz miękka; zgłoszono też regresję jakości cieni PCF w r182 ([T2], [T5]). Wniosek: przypinamy wersję three.js i sprawdzamy cienie w Etapie 0.
@@ -713,7 +755,7 @@ Przytrzymanie ikony kłódki przez 2 s → działanie dla dorosłych do **wpisan
 | Działania włączone | + − × : (osobno) | wszystkie |
 | Działania w walce | tematyczne krainy / wszystkie | tematyczne |
 | Przekraczanie 10 na Łące | tak / nie | tak |
-| Limit czasu QTE | Brak / Łagodny / Stały (s per działanie) | Brak → Łagodny po 1. wyprawie |
+| Limit czasu odpowiedzi | Brak / Łagodny / Stały (s per działanie) | Brak (v0.3) |
 | Przypomnienie o przerwie | brak / 15 / 20 / 30 min | brak |
 | Jakość grafiki | auto / niska / średnia / wysoka | auto |
 | Zapis | eksport do pliku / import / reset | — |
@@ -794,7 +836,7 @@ src/
   render/               three.js: świat wokselowy, meshing (worker), światło,
                         cienie, post, presety jakości, kamera, animacje
   input/                pad, dotyk, klawiatura → akcje abstrakcyjne
-  ui/                   HUD, QTE, brama, baza, panel rodzica (DOM)
+  ui/                   HUD, karty, panel odpowiedzi, brama, baza, handlarz, panel rodzica (DOM)
   platform/             IndexedDB, PWA, fullscreen, wake lock, audio
   main.ts
 tests/                  testy core/ i content/
@@ -842,7 +884,8 @@ CI (propozycja): GitHub Actions — lint, typecheck, testy, build przy każdym p
 |---|---|---|
 | **0. Szkielet techniczny** | Vite+TS+three.js, scena z kostek (cienie PCF, bloom, mgła), 3 presety, **sterowanie dotykowe**, PWA offline | scena działa w Chromium; pomiar fps na Tab S11 Ultra robi rodzic (licznik fps w ustawieniach) |
 | **1. Rdzeń logiki** | `core/`: fakty, generatory, dystraktory, podpowiedzi, model, scheduler, kalibracja, solver bramy, ekonomia, walka (logika), zapis | testy zielone, symulacja z sekcji 21 spełnia kryteria; zero kodu grafiki |
-| **2. MVP** | baza, Łąka, 4 stworki, łapanie, brama, dungeon 5 pokoi, 3 brainroty + boss, przemiana w brainglamy + Galeria, sprzęt Łąki, kuźnia, panel rodzica, zapis, PWA | patrz niżej |
+| **2. MVP** | baza, Łąka, 4 stworki, łapanie, brama, dungeon 5 pokoi, 3 brainroty + boss, **walka kartami**, przemiana w brainglamy + Galeria, **handlarz kart**, sprzęt Łąki, kuźnia, panel rodzica, zapis, PWA | patrz niżej |
+| 2b. Wymiana między tabletami | eksport/import karty jako kod lub QR (z sumą kontrolną) | wymiana działa offline między dwoma urządzeniami |
 | 2a. Pad | Gamepad API przez warstwę akcji, ikony układów, ekran „naciśnij przycisk” | działa na padzie dziecka w zainstalowanej PWA |
 | 3. Jaskinia | odejmowanie, Minusiak, nowe stworki i brainroty, boss | jak MVP dla nowej krainy |
 | 4. Wulkan | przekraczanie 10 (dwucyfrowe, odejmowanie) | — |
@@ -882,7 +925,10 @@ Rodzic: „rób jak uważasz za słuszne”. Przyjęte:
 | Pad | po MVP (etap 2a); MVP tylko dotyk | — |
 | Łąka: tylko dodawanie czy wszystko? | **tematycznie + kalibracja**; dodatkowo etap Ł4 obejmuje **przekraczanie 10** (dziecko je zna, bez tego Łąka byłaby za łatwa); przełącznik „wszystkie działania w walce” w panelu rodzica | panel rodzica |
 | Zakres liczb | **do 20** | panel rodzica: do 10 / 20 / 100 |
-| Limit czasu | **Brak** do końca pierwszej wyprawy, potem **Łagodny** | panel rodzica |
+| Limit czasu | **Brak** (v0.3: walka kartami jest turowa) | panel rodzica |
+| Walka | **karty** (v0.3) | — |
+| Kamera | **stała**, z góry pod kątem (v0.3) | — |
+| Wymiana kart | **handlarz w bazie**; kody między tabletami w etapie 2b (v0.3) | — |
 | Ilość tekstu | krótkie zdania, ikony; lektor jako propozycja na później | — |
 | Imię w grze | opcjonalny pseudonim, domyślnie „Bohater” | ekran startowy / panel |
 | Nazwy stworków i brainrotów | jak w sekcjach 13.1–13.3 | jeden plik danych `content/` |
@@ -907,25 +953,27 @@ Każda propozycja: co daje, na czym się opiera, pewność.
 
 ### 26.1. Czy gra w ogóle pomoże? — stan dowodów
 
-- **Za:** [FAKT][ABSTRAKT] metaanaliza 2015–2020 (szkoła, różne przedmioty): g = 0,54 dla uczenia się ogółem, g = 0,67 dla wyników poznawczych, bez oznak stronniczości publikacji ([S17]). Metaanaliza 24 badań PreK–12 w matematyce: efekt mały i tylko marginalnie istotny, duża niejednorodność ([S18]). Metaanaliza ćwiczeń faktów arytmetycznych z technologią: g = 0,43 ogółem ([S8]).
-- **Przeciw / ograniczenia:** [FAKT][ABSTRAKT] w tej samej metaanalizie [S8] przewaga nad ćwiczeniem **bez technologii** była mała (g = 0,25) wobec g = 0,54 względem „zwykłych zajęć”. Metaanaliza RCT u dzieci z trudnościami: gry wideo nie dawały przewagi nad komputerowym drylem i tutoringiem ([S6]). Najnowsza metaanaliza wielopoziomowa: g = 0,37, ale przewaga nad **równoważnym ćwiczeniem** niepewna, żadna rodzina badań randomizowanych nie miała niskiego ryzyka błędu ([S19]).
-- **Test odwrotny:** z tych samych danych da się obronić tezę „gra nie uczy lepiej niż ta sama ilość zwykłych ćwiczeń”. Dlatego:
-  - (a) pewność, że efekt gry vs zwykłe zajęcia istnieje: **4**;
-  - (b) pewność, że gra daje **praktycznie istotną** przewagę nad równoważnymi ćwiczeniami: **2**.
-- **Decyzja projektowa wynikająca z tego:** wartość gry = **więcej chętnie wykonanych, dobrze dobranych ćwiczeń**. Dlatego silnik zadań (adaptacja, podpowiedzi, powtórki) musi być dobry sam w sobie, niezależnie od grafiki.
+- **Za:** [FAKT][ABSTRAKT] metaanaliza 2015–2020 (szkoła, różne przedmioty): g = 0,54 dla uczenia się ogółem, g = 0,67 dla wyników poznawczych ([S17]). Metaanaliza 24 badań PreK–12 w matematyce: efekt mały i tylko marginalnie istotny ([S18]).
+- [FAKT][PEŁNY TEKST] Zhang i in. 2026 ([S19]): model główny g = 0,368 [0,176; 0,560], ale oparty na 19 z 79 rodzin badań; ryzyko błędu: 29 z 35 rodzin randomizowanych „wysokie”, żadna „niska”, 42 z 44 nierandomizowanych „poważne” lub „krytyczne”; testy efektu małych badań istotne (Egger p = 0,040); korekta trim-and-fill: g = 0,225 [−0,012; 0,461]; cztery najprecyzyjniejsze badania: g = 0,11–0,23. **Brak jakiegokolwiek oszacowania gry vs równoważne ćwiczenie** (jest tylko nieistotny współczynnik względny). Brak rejestracji protokołu; artykuł przyjęty 5 dni po wpłynięciu.
+- [FAKT][PEŁNY TEKST] Burns i in. 2024 ([S8]): 12 badań, 17 efektów, klasy 1–6 (7 z 12 badań obejmuje klasy 2–3). Ogółem g ≈ 0,43 [0,21; 0,64]; vs zwykłe zajęcia g = 0,53 [0,34; 0,72]; **vs ćwiczenie na papierze g = 0,25 [−0,44; 0,94], k = 5 — nieistotne**; płynność faktów g = 0,31 [0,02; 0,59]. Najlepszym predyktorem efektu była **łączna liczba minut ćwiczeń** (+23% wariancji). Zastrzeżenia: pierwszy autor jest współautorem 3 włączonych badań (5 z 17 efektów) bez deklaracji konfliktu interesów; efekty zależne traktowane jako niezależne; niespójności w raportowanych liczbach (np. I² = 95,9% przy Q = 72,8 i df = 16, co daje ok. 78%).
+- [FAKT][ABSTRAKT] Metaanaliza RCT u dzieci z trudnościami: gry nie dawały przewagi nad komputerowym drylem ([S6]).
+- **Test odwrotny:** z tych samych danych da się obronić tezę „gra nie uczy lepiej niż ta sama ilość zwykłych ćwiczeń” — i po pełnych tekstach jest ona mocniejsza niż w v0.1.
+  - (a) pewność, że gra daje efekt vs zwykłe zajęcia: **4**, ale wielkość raczej **mała (g ≈ 0,1–0,2 w najprecyzyjniejszych badaniach)** — obniżone oczekiwania co do wielkości, nie co do istnienia;
+  - (b) pewność praktycznie istotnej przewagi nad równoważnymi ćwiczeniami: **2** (bez zmian — brak danych bezpośrednich).
+- **Decyzja projektowa (wzmocniona przez S8):** wartość gry = **więcej minut chętnie wykonanych, dobrze dobranych ćwiczeń**. Silnik zadań musi być dobry sam w sobie, a gra ma zwiększać czas ćwiczeń, nie zastępować ich ozdobnikami.
 
-### 26.2. Źródła literaturowe (wszystkie: [ABSTRAKT], chyba że zaznaczono)
+### 26.2. Źródła literaturowe ([ABSTRAKT], chyba że zaznaczono [PEŁNY TEKST])
 
 | # | Źródło | Populacja / projekt | Czego nie wiem (co zmieniłoby wniosek) |
 |---|---|---|---|
 | S1 | Boaler, *Research Suggests that Timed Tests Cause Math Anxiety*, Teaching Children Mathematics 2014 — [link](https://consensus.app/papers/details/0c9dba0a597c5295aaed45972d4ea351/?utm_source=claude_desktop) | komentarz, nie badanie | — (to opinia; cytuje inne badania) |
 | S2 | Maki i in., *Math anxiety in elementary students: timing and task complexity*, J. School Psychology 2024 — [link](https://consensus.app/papers/details/d6a88966052c5a9ab20a55e06cd717cf/?utm_source=claude_desktop) | klasy 4–5, n=113, wewnątrzosobowy | wielkość efektów z CI; czy pomiar lęku był samoopisem jednorazowym |
-| S3 | Orbach i in., *Reading and math anxiety in children… time pressure*, Frontiers 2026 — [link](https://consensus.app/papers/details/9730ac5f9ee95018b5238238d2c02b6b/?utm_source=claude_desktop) | klasy 3–4, n=311 | wielkość wzrostu lęku stanowego; czy efekt praktycznie istotny |
+| S3 | Orbach i in., *Reading and math anxiety in children… time pressure*, Frontiers in Child and Adolescent Psychiatry 2026 — [link](https://consensus.app/papers/details/9730ac5f9ee95018b5238238d2c02b6b/?utm_source=claude_desktop) — **[PEŁNY TEKST]** | klasy 3–4, n=311 (analiza n=289), średnio ok. 10 lat; stała kolejność, różne testy | brak standaryzowanego efektu; porównanie pomieszane z kolejnością i treścią testu (patrz 7.4) |
 | S4 | Maki i in., *Effects of Task Timing and Complexity on… Strategy Use*, School Psychology Review 2024 — [link](https://consensus.app/papers/details/2585532ca475511cbbfaa168e84ba7d1/?utm_source=claude_desktop) | ta sama próba co S2 | czy analiza podgrup była zaplanowana |
 | S5 | Van der Kleij i in., *Effects of Feedback in a Computer-Based Learning Environment*, Review of Educational Research 2015 — [link](https://consensus.app/papers/details/92512fdf281b569c9d8e9d9832a44516/?utm_source=claude_desktop) | metaanaliza, 40 badań, 70 efektów | udział badań z dziećmi <10 lat; CI dla efektów; efekt w podgrupie „podstawówka” |
 | S6 | Benavides-Varela i in., *Digital-based interventions for children with mathematical learning difficulties*, Computers & Education 2020 — [link](https://consensus.app/papers/details/bd64f58d6e725c0382f58fd05e8e4595/?utm_source=claude_desktop) | metaanaliza 15 RCT, n=1073, dzieci z trudnościami | czy wniosek przenosi się na dziecko bez trudności (inna populacja) |
 | S7 | Klinkenberg i in., *Computer adaptive practice of Maths ability… Elo*, Computers & Education 2011 — [link](https://consensus.app/papers/details/dd0a74ec088c56a8998cc013b203af21/?utm_source=claude_desktop) | 3648 dzieci, 10 mies., opis systemu | dokładna reguła punktacji czas+poprawność; brak porównania z innymi progami sukcesu |
-| S8 | Burns i in., *Meta-Analysis of Technology-Based Mathematical Fact Practice*, J. Special Education Technology 2024 — [link](https://consensus.app/papers/details/be6429a1c1d552d8b79b6ef293dce324/?utm_source=claude_desktop) | 12 badań, 17 efektów | mała liczba badań; CI; jakość badań pierwotnych |
+| S8 | Burns i in., *Meta-Analysis of Technology-Based Mathematical Fact Practice*, J. Special Education Technology 2024 — [link](https://consensus.app/papers/details/be6429a1c1d552d8b79b6ef293dce324/?utm_source=claude_desktop) — **[PEŁNY TEKST]** | 12 badań, 17 efektów, klasy 1–6 | patrz 26.1: nieistotne vs papier; niezadeklarowany konflikt interesów; zależne efekty |
 | S9 | Hilz i in., *Tracing students' practice behavior in an adaptive math learning program*, Learning and Instruction 2025 — [link](https://consensus.app/papers/details/f0e3da24a44a57c6bde1aeba1b9b66c0/?utm_source=claude_desktop) | klasa 5, n=890, 45 tyg., obserwacyjne | wielkości efektów; przyczynowość (to dane korelacyjne) |
 | S10 | Li i in., *Visuospatially Rich Math Games Increase Anxiety…*, Mind, Brain, and Education 2025 — [link](https://consensus.app/papers/details/f0446173415a5b618aa1ef89c22694a4/?utm_source=claude_desktop) | klasa 2, n=40, pre-post bez kontroli | brak grupy kontrolnej — wzrost lęku może nie wynikać z gry |
 | S11 | Rohrer i in., *A randomized controlled trial of interleaved mathematics practice*, J. Educational Psychology 2019 — [link](https://consensus.app/papers/details/9981c1c7ff815a94907701539d2d89cc/?utm_source=claude_desktop) | 54 klasy 7, RCT klastrowe, preregistrowane | przenośność na 8-latków i fakty arytmetyczne |
@@ -936,7 +984,8 @@ Każda propozycja: co daje, na czym się opiera, pewność.
 | S16 | Ebersbach, *Distributing mathematical practice of third and seventh graders*, Applied Cognitive Psychology 2018 — [link](https://consensus.app/papers/details/bb01f72909ce58d482877ad66153b813/?utm_source=claude_desktop) | klasy 3 i 7, n=213 | w klasie 3 efekt tylko po 1 tygodniu — wielkość efektu |
 | S17 | Barz i in., *The Effect of Digital Game-Based Learning Interventions…*, Review of Educational Research 2023 — [link](https://consensus.app/papers/details/66a8bd7d9c22571fa8056f422a35d2ee/?utm_source=claude_desktop) | metaanaliza szkolna 2015–2020 | udział matematyki i wieku 7–9 lat; co było grupą kontrolną |
 | S18 | Tokac i in., *Effects of game-based learning on students' mathematics achievement*, J. Computer Assisted Learning 2019 — [link](https://consensus.app/papers/details/55d1218bbc645614adcc846a5fd7c910/?utm_source=claude_desktop) | metaanaliza 24 badań PreK–12 | wartość efektu (abstrakt jej nie podaje) i CI |
-| S19 | Zhang i in., *Does Game-Based Learning Improve K–12 Mathematics Achievement Beyond Equivalent Practice?*, IJRISS 2026 — [link](https://consensus.app/papers/details/cb55f817f1d65202bc8cf8609f3b34b1/?utm_source=claude_desktop) | 19 rodzin badań w modelu głównym | renoma czasopisma nieznana mi; autorzy sami oceniają ryzyko błędu badań pierwotnych jako wysokie |
+| S19 | Zhang i in., *Does Game-Based Learning Improve K–12 Mathematics Achievement Beyond Equivalent Practice?*, IJRISS 2026 — [link](https://consensus.app/papers/details/cb55f817f1d65202bc8cf8609f3b34b1/?utm_source=claude_desktop) — **[PEŁNY TEKST]** | 19 z 79 rodzin w modelu głównym | brak tabeli badań (wiek, czas trwania); brak rejestracji; bardzo szybka ścieżka publikacji |
+| S20 | Tarkar i in., *Student-Guided Math Practice in Elementary School: Math Anxiety, Emotional Self-Efficacy, and Children's Choices*, Education Sciences 2022 — [link](https://consensus.app/papers/details/e9b64f19c8a85ffd9cab55f33b37ed41/?utm_source=claude_desktop) | klasy 3–4, n=26, opisowe | bardzo mała próba; wyniki opisowe, bez testów przyczynowych |
 
 ### 26.3. Źródła techniczne
 
