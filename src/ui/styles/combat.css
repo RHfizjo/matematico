@@ -2,8 +2,11 @@
 
 .ct { position: absolute; inset: 0; }
 .ct .ct-pause, .ct .ct-end, .ct .ct-slot { pointer-events: auto; }
-.ct.is-busy .ct-pause, .ct.is-busy .ct-end, .ct.is-busy .ct-slot { pointer-events: none; }
+.ct.is-busy .ct-pause, .ct.is-busy .ct-end, .ct.is-busy .ct-slot,
+.ct.is-selecting .ct-pause, .ct.is-selecting .ct-end, .ct.is-selecting .ct-slot { pointer-events: none; }
 .ct.is-busy .ct-end { filter: saturate(0.5) opacity(0.7); }
+/* Po zagraniu karty (zadanie, podpowiedź, pauza) ręka chowa się do połowy — spokojne tło pod panelem (GDD 7.1). */
+.ct.is-busy:not(.is-hidden) .ct-hand { transform: translateY(160px); transition-delay: 220ms; }
 
 .ct-pause, .ct-left, .ct-right, .ct-tip { transition: opacity 250ms ease, transform 300ms cubic-bezier(0.2, 1.2, 0.4, 1); }
 .ct.is-hidden .ct-pause, .ct.is-hidden .ct-left, .ct.is-hidden .ct-right { opacity: 0; pointer-events: none; }
@@ -62,7 +65,8 @@
 
 /* Ręka kart */
 .ct-hand {
-  position: absolute; left: var(--hand-cx, 50%); bottom: calc(var(--gutter) + 14px); width: 0; height: 250px; pointer-events: none;
+  /* Dół ręki ≥ 32 px od krawędzi także dla skrajnej, obniżonej karty (gest „do domu” w Androidzie). */
+  position: absolute; left: var(--hand-cx, 50%); bottom: calc(var(--gutter) + 28px); width: 0; height: 250px; pointer-events: none;
   transition: transform 380ms cubic-bezier(0.3, 0.9, 0.3, 1);
 }
 .ct-slot {
@@ -77,7 +81,7 @@
 @media (hover: hover) {
   .ct-slot:hover { transform: translate(var(--x, 0px), calc(var(--y, 0px) - 26px)) rotate(calc(var(--r, 0deg) * 0.4)); z-index: 40 !important; }
 }
-.ct-slot .card.unplayable { transform: translateY(20px); }
+.ct-slot .card.unplayable { transform: translateY(12px); }
 /* W wachlarzu widać lewą część każdej karty — znaczek siły przenosimy pod koszt (lewa krawędź). */
 .ct-slot .card-power { right: auto; left: -14px; top: 30px; }
 .ct-slot.is-entering { opacity: 0; transform: translate(calc(-50vw + 240px), 140px) rotate(-30deg) scale(0.4); }

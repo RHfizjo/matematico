@@ -95,6 +95,7 @@ const CELEBRATE_KICKER: Record<CelebrateRequest['kind'], string> = {
 };
 
 const RARITY_GEMS: Record<Rarity | 'legendary', number> = { common: 1, uncommon: 2, rare: 3, legendary: 4 };
+const RARITY_LABEL: Record<Rarity | 'legendary', string> = { common: 'zwykły', uncommon: 'niezwykły', rare: 'rzadki', legendary: 'legendarny' };
 const CONFETTI = ['#ff6b6b', '#ffd23f', '#3ccf6e', '#3fa7ff', '#b25cff', '#ff9f43', '#ff7ac6'];
 
 export function celebrateDialog(ctx: UiContext, req: CelebrateRequest): Promise<void> {
@@ -132,7 +133,7 @@ export function celebrateDialog(ctx: UiContext, req: CelebrateRequest): Promise<
     if (req.items && req.items.length > 0) {
       const list = h('div', { class: 'cel-items' });
       req.items.forEach((it, i) => {
-        const gems = h('span', { class: 'cel-gems', attrs: { 'aria-label': it.rarity } });
+        const gems = h('span', { class: 'cel-gems', attrs: { 'aria-label': RARITY_LABEL[it.rarity] } });
         for (let g = 0; g < RARITY_GEMS[it.rarity]; g++) gems.append(h('i'));
         const row = h(
           'div',

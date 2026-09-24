@@ -7,7 +7,7 @@ import type { EnemyHud, FloatKind, IntentView, ScreenPos, UiApi } from '../game/
 import type { UiContext } from './context';
 import { h } from './dom';
 import { icon } from './icons';
-import { clamp } from './util';
+import { clamp, plural } from './util';
 
 export type HudApi = UiApi['hud'] & { readonly enemyVisible: boolean };
 
@@ -29,7 +29,7 @@ export function createHud(ctx: UiContext): HudApi {
   const eFill = h('div', { class: 'he-fill' });
   const eGhost = h('div', { class: 'he-ghost' });
   const eNum = h('div', { class: 'he-num' });
-  const eBar = h('div', { class: 'he-bar' }, eGhost, eFill, h('div', { class: 'he-shine' }), eNum);
+  const eBar = h('div', { class: 'he-bar' }, eGhost, eFill, eNum);
   const eVines = h('div', { class: 'he-vines is-hidden' });
   const enemyCard = h('div', { class: 'he-card' }, h('div', { class: 'he-row' }, h('span', { class: 'he-tag' }, 'Czar'), eName, ePhases), eBar, eVines);
   const enemy = h('div', { class: 'hud-enemy is-hidden' }, intent, enemyCard);
@@ -39,7 +39,7 @@ export function createHud(ctx: UiContext): HudApi {
   const hpGhost = h('div', { class: 'hp-ghost' });
   const hpNum = h('div', { class: 'hp-num' });
   const heart = icon('heart', 'hp-heart');
-  const hp = h('div', { class: 'hud-hp is-hidden' }, heart, h('div', { class: 'hp-bar' }, hpGhost, hpFill, h('div', { class: 'he-shine' }), hpNum));
+  const hp = h('div', { class: 'hud-hp is-hidden' }, heart, h('div', { class: 'hp-bar' }, hpGhost, hpFill, hpNum));
   const shieldNum = h('span', { class: 'hud-shield-n' }, '0');
   const shield = h('div', { class: 'hud-shield is-hidden', attrs: { 'aria-label': 'tarcza' } }, icon('shield'), shieldNum);
   const bl = h('div', { class: 'hud-bl' }, hp, shield);
@@ -141,7 +141,7 @@ export function createHud(ctx: UiContext): HudApi {
       eVines.classList.toggle('is-hidden', vines <= 0);
       if (vines > 0) {
         for (let i = 0; i < Math.min(vines, 8); i++) eVines.append(icon('leaf', 'he-leaf'));
-        eVines.append(h('span', { class: 'he-vines-t' }, vines === 1 ? 'pnącze' : vines < 5 ? 'pnącza' : 'pnączy'));
+        eVines.append(h('span', { class: 'he-vines-t' }, `${vines} ${plural(vines, 'pnącze', 'pnącza', 'pnączy')}`));
       }
     },
     setIntent(v: IntentView | null) {

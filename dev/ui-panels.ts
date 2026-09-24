@@ -2,7 +2,9 @@
  * Harness deweloperski paneli UI (src/ui/panels): brama, wybór cyfr, panele bazy, karty, handlarz, rodzic.
  *   window.__demo('gate' | 'gate-error' | 'gate-valid' | 'digits' | 'pen' | 'treasury' | 'forge' | 'gallery'
  *                 | 'expeditions' | 'cards' | 'merchant' | 'parent-lock' | 'parent-progress'
- *                 | 'parent-settings' | 'parent-save')
+ *                 | 'parent-settings' | 'parent-save')  (+ extra: gate-nogift, digits-error, pen-one, cards-zoom,
+ *                 expeditions-locked-tap, parent-lock-math, parent-progress-mid/-bottom, parent-settings-fixed/-bottom,
+ *                 parent-save-reset, parent-info)
  * Adres z #stanem (np. ui-panels.html#forge) otwiera dany stan od razu.
  */
 import '../src/ui/theme.css';

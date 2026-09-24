@@ -8,7 +8,7 @@ const S = `stroke="${INK}" stroke-width="5" stroke-linejoin="round" stroke-linec
 
 const STAR_PTS = '32,5 39.6,22.5 58.6,24.4 44.4,37 48.5,55.7 32,46 15.5,55.7 19.6,37 5.4,24.4 24.4,22.5';
 
-const SVG: Record<string, string> = {
+const SVG = {
   heart: `<path d="M32 56C12 42 5 32 5 21C5 12 12 6 20 6c5 0 9 3 12 7c3-4 7-7 12-7c8 0 15 6 15 15c0 11-7 21-27 35Z" fill="#ff5d7a" ${S}/><path d="M16 17c2-3 5-4 8-3" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="4" stroke-linecap="round"/>`,
   shield: `<path d="M32 5l23 8v17c0 15-10 25-23 30C19 55 9 45 9 30V13Z" fill="#58c4ff" ${S}/><path d="M32 12v41" stroke="#fff" stroke-opacity=".55" stroke-width="5" stroke-linecap="round"/>`,
   star: `<polygon points="${STAR_PTS}" fill="#ffd23f" ${S}/><path d="M24 24l5-1" stroke="#fff" stroke-opacity=".85" stroke-width="4" stroke-linecap="round"/>`,
@@ -35,7 +35,7 @@ const SVG: Record<string, string> = {
   gift: `<rect x="8" y="24" width="48" height="14" rx="3" fill="#ff8fb8" ${S}/><rect x="12" y="38" width="40" height="20" rx="3" fill="#ff5d7a" ${S}/><path d="M32 24v34" ${S}/><path d="M32 24c-6-12-18-12-16-3c1 4 9 3 16 3c7 0 15 1 16-3c2-9-10-9-16 3Z" fill="#ffd23f" ${S}/>`,
   drop: `<path d="M32 6C24 20 14 30 14 41a18 18 0 0 0 36 0C50 30 40 20 32 6Z" fill="#7fd6ff" ${S}/>`,
   sprout: `<path d="M32 58V32" ${S}/><path d="M32 34C32 20 22 14 10 14c0 12 8 20 22 20Z" fill="#5cc96b" ${S}/><path d="M32 30c0-12 9-18 22-18c0 12-9 18-22 18Z" fill="#8ee07a" ${S}/>`,
-};
+} satisfies Record<string, string>;
 
 export type IconName = keyof typeof SVG;
 
@@ -44,7 +44,7 @@ export function icon(name: IconName, cls = ''): HTMLSpanElement {
   const el = document.createElement('span');
   el.className = `icon icon-${name}${cls ? ` ${cls}` : ''}`;
   el.setAttribute('aria-hidden', 'true');
-  el.innerHTML = `<svg viewBox="0 0 64 64" width="100%" height="100%" focusable="false">${SVG[name] ?? ''}</svg>`;
+  el.innerHTML = `<svg viewBox="0 0 64 64" width="100%" height="100%" focusable="false">${SVG[name]}</svg>`;
   return el;
 }
 

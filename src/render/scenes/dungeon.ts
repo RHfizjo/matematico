@@ -159,9 +159,10 @@ export function buildDungeonRoom(seed: number, kind: RoomKind, index: number): S
     spawn = { ...heroSpot };
     // Arena: krąg ubitej ziemi otoczony (przerywanym) pierścieniem kamieni.
     const ar = boss ? 6.5 : 5.2;
+    // Szeroki na 2 kostki pierścień (węższy „schodkowałby” w kropkowaną linię), w środku czysta ubita ziemia.
     b.disc(C.x, C.z, ar + 1.2, (x, z, d) => {
-      if (d < ar - 0.6) b.setTop(x, z, d > ar - 1.6 || hash2(x, z, s + 41) > 0.12 ? B.caveFloor : B.gravel);
-      else if (d < ar + 0.5) b.setTop(x, z, hash2(z, x, s) < 0.72 ? B.stoneBrick : B.mossyStone);
+      if (d < ar - 1.1) b.setTop(x, z, B.caveFloor);
+      else if (d < ar + 0.6) b.setTop(x, z, hash2(z, x, s) < 0.75 ? B.stoneBrick : B.mossyStone);
     });
   }
   // Kamyczki i korzenie na podłodze (żeby duża płaszczyzna nie była pusta).

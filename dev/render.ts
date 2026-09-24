@@ -362,6 +362,7 @@ async function setTod(t: TimeOfDay): Promise<unknown> {
 
 (window as unknown as { __demo: (s: string) => Promise<unknown> }).__demo = async (s: string) => {
   portraitsBox.style.display = 'none';
+  if (s !== 'dim') render.setFocusDim(false);
   const fn = demos[s];
   if (!fn) throw new Error(`nieznany stan: ${s}`);
   return fn();

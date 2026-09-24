@@ -46,7 +46,8 @@
 .he-ghost, .hp-ghost { background: #fff; opacity: 0.85; transition: width 700ms ease 450ms; }
 .he-fill { background: linear-gradient(#e0b0ff, var(--czar) 55%, #8b3fe0); transition: width 380ms cubic-bezier(0.3, 0.8, 0.3, 1); }
 .he-fill::after, .hp-fill::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 3px; background: rgba(255, 255, 255, 0.6); }
-.he-shine { position: absolute; left: 8px; right: 8px; top: 4px; height: 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.32); }
+/* Połysk tylko na wypełnieniu (nie na pustej, ciemnej części paska). */
+.he-fill::before, .hp-fill::before { content: ''; position: absolute; left: 7px; right: 7px; top: 4px; height: 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.4); }
 .he-num, .hp-num {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   font: 900 19px/1 var(--font); color: #fff; font-variant-numeric: tabular-nums;

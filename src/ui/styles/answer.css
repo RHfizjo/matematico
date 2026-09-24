@@ -1,6 +1,9 @@
 /* Panel odpowiedzi: wielkie działanie, okienko niewiadomej, duże przyciski, klawiatura, Oś, pierścień czasu. */
 
 .ans-modal { background: radial-gradient(ellipse at 50% 45%, rgba(20, 28, 50, 0.12), rgba(20, 28, 50, 0.42)); }
+/* W walce środek panelu schodzi niżej — tytuł panelu nie wchodzi na pasek Czaru brainrota. */
+.ui-has-enemy .ans-modal { padding-top: 150px; }
+@media (max-height: 840px) { .ui-has-enemy .ans-modal { padding-top: 60px; } }
 .ans-panel {
   position: relative; width: min(920px, calc(100vw - 2 * var(--gutter) - 60px));
   padding: 62px 44px 40px; display: flex; flex-direction: column; align-items: center; gap: 28px;
@@ -28,6 +31,9 @@
 .ans-kind-calibration .ans-title { background: linear-gradient(#a08cff, var(--rare)); }
 
 .ans-card { position: absolute; left: -128px; top: 34px; transform: rotate(-9deg); animation: card-land 460ms cubic-bezier(0.2, 1.3, 0.4, 1) both; z-index: 2; }
+/* Mini karta: bez etykiety rodzaju — więcej miejsca na portret. */
+.ans-card .card-kind { display: none; }
+.ans-card .card-name { font-size: 15px; text-wrap: balance; }
 .ans-card .card { box-shadow: 0 6px 0 rgba(31, 42, 68, 0.3), 0 16px 30px rgba(20, 28, 50, 0.35); }
 @keyframes card-land { from { opacity: 0; transform: translate(80px, 260px) rotate(0deg) scale(1.4); } to { opacity: 1; transform: rotate(-9deg); } }
 
@@ -94,6 +100,15 @@
 .ans-panel.is-typed .task-text.long { font-size: 68px; }
 .ans-panel.is-typed .task-text.xlong { font-size: 56px; }
 
+/* Z otwartą pomocą (Oś / POPRAWKA) panel jest ciaśniejszy, żeby zmieścić się między paskiem Czaru a ręką kart. */
+.ans-panel.has-help:not(.is-typed) { padding-top: 50px; padding-bottom: 30px; gap: 18px; }
+.ans-panel.has-help .ans-taskcol { gap: 14px; }
+.ans-panel.has-help:not(.is-typed) .task-text { font-size: 76px; }
+.ans-panel.has-help:not(.is-typed) .task-text.long { font-size: 72px; }
+.ui-root .ans-panel.has-help .ans-opt { height: 128px; }
+.ui-root .ans-panel.has-help:not(.is-typed) .ans-os { top: 40px; }
+.ans-panel.is-timeup .ans-opt:not(.is-reveal) { opacity: 0.55; }
+
 /* Pomoc „Oś” */
 .ui-root .ans-os {
   position: absolute; right: 26px; top: 52px; width: 104px; height: 104px; min-height: 0; padding: 6px 0 4px;
@@ -109,6 +124,7 @@
 .ui-root .ans-os.is-used { filter: grayscale(0.6) opacity(0.55); }
 .ans-panel.is-typed .ans-os { top: auto; bottom: 28px; right: auto; left: 30px; }
 .ui-root .ans-panel.has-ring:not(.is-typed) .ans-os { top: 84px; width: 96px; height: 96px; }
+.ui-root .ans-panel.has-ring.has-help:not(.is-typed) .ans-os { top: 70px; width: 88px; height: 88px; }
 .ans-typed-hint { font: 800 22px/1.2 var(--font); color: var(--ink-soft); margin-top: -8px; }
 
 .ans-help {
@@ -124,7 +140,7 @@
 .ans-help-step { font: 800 25px/1.25 var(--font); text-align: center; text-wrap: balance; }
 .ans-help-again { font: 900 21px/1.1 var(--font); color: #d9731a; }
 .ans-help-viz { width: 100%; display: flex; justify-content: center; }
-.ans-help-viz .nl { width: min(600px, 100%); height: auto; }
+.ans-help-viz .nl { width: min(700px, 100%); height: auto; }
 
 /* Pierścień czasu (bez liczb) */
 .ans-ring {

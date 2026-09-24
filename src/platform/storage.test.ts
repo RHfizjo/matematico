@@ -242,6 +242,30 @@ describe('createStorage', () => {
     expect(kv.data.has(`${KEY}:backup1`)).toBe(false);
   });
 
+  it('a save() called AFTER clear() survives, even when an older save was still queued', async () => {
+    const kv = memKv({ delayMs: 2 });
+    const st = createStorage({ serialize, deserialize, key: KEY }, kv);
+    await st.save(mk(1));
+    const p1 = st.save(mk(2)); // queued, not started yet
+    const pc = st.clear(); // e.g. parent's "Reset"
+    const p2 = st.save(mk(7)); // fresh profile saved right after the reset
+    await Promise.all([p1, pc, p2]);
+    expect(num(await st.load())).toBe(7);
+    expect(kv.data.has(`${KEY}:backup1`)).toBe(false);
+  });
+
+  it('clear() also removes the set-aside corrupt copy', async () => {
+    const kv = memKv();
+    kv.data.set(KEY, '{"version":1,"n":');
+    const st = createStorage({ serialize, deserialize, key: KEY }, kv);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    expect(await st.load()).toBeNull();
+    warn.mockRestore();
+    expect(kv.data.has(`${KEY}:corrupt`)).toBe(true);
+    await st.clear();
+    expect(kv.data.has(`${KEY}:corrupt`)).toBe(false);
+  });
+
   it('importFile deserializes the text and propagates the deserializer error', async () => {
     const st = createStorage({ serialize, deserialize, key: KEY }, memKv());
     const file = (text: string): File => ({ text: async () => text }) as unknown as File;

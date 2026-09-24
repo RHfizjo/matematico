@@ -1,7 +1,7 @@
 /**
  * Harness deweloperski rdzenia UI (src/ui): wszystkie ekrany na fałszywych danych.
  *   window.__demo(state) — 'title' | 'profile' | 'hud' | 'hud-boss' | 'cards' | 'answer' | 'answer-missing' | 'answer-typed'
- *     | 'answer-limit' | 'answer-os' | 'answer-retry' | 'answer-correct' | 'answer-wrong' | 'hint-line' | 'hint-blocks'
+ *     | 'answer-limit' | 'answer-timeout' | 'answer-os' | 'answer-retry' | 'answer-correct' | 'answer-wrong' | 'hint-line' | 'hint-blocks'
  *     | 'hint-tens' | 'hint-minus' | 'say' | 'say-typing' | 'celebrate' | 'celebrate-loot' | 'pause' | 'toast' | 'loading'
  *     | 'confirm' | 'break' | 'fade'
  *   window.__overflow() — lista elementów UI wystających poza okno.
@@ -223,6 +223,12 @@ function combatHud(u: UiApiExt, opts?: { boss?: boolean }): void {
   u.hud.setShield(12);
 }
 
+/** Tura kart po wyborze (jak w grze: karta zagrana / pauza) — ręka schowana do połowy, bez dymka. */
+function playedTurn(u: UiApiExt): void {
+  void u.cardTurn(CARD_VIEW).then(v => log('cardTurn', v));
+  tap('.ct-end');
+}
+
 function answerReq(p: Partial<AnswerRequest>): AnswerRequest {
   return { task: T_ADD, kind: 'card', title: 'Cios Plusika!', limitMs: null, numberLineUses: 0, retryAvailable: false, hint: H_MAKE10, ...p };
 }
@@ -312,7 +318,7 @@ const STATES: Record<string, () => Promise<unknown> | void> = {
   answer: () => {
     const u = fresh(true);
     combatHud(u);
-    void u.cardTurn(CARD_VIEW);
+    playedTurn(u);
     void u.answer(answerReq({ card: CARDS[0], numberLineUses: 1 })).then(r => log('answer', r));
   },
   'answer-missing': () => {
@@ -333,8 +339,14 @@ const STATES: Record<string, () => Promise<unknown> | void> = {
   'answer-limit': () => {
     const u = fresh(true);
     combatHud(u);
-    void u.cardTurn(CARD_VIEW);
+    playedTurn(u);
     void u.answer(answerReq({ task: T_SUB, card: CARDS[1], title: 'Tarcza Dopełniaka!', hint: H_DOWN10, limitMs: 8000, numberLineUses: 1 })).then(r => log('answer', r));
+  },
+  'answer-timeout': () => {
+    const u = fresh(true);
+    combatHud(u);
+    playedTurn(u);
+    void u.answer(answerReq({ task: T_SUB, card: CARDS[1], title: 'Tarcza Dopełniaka!', hint: H_DOWN10, limitMs: 1500 })).then(r => log('answer', r));
   },
   'answer-three': () => {
     const u = fresh();
@@ -343,7 +355,7 @@ const STATES: Record<string, () => Promise<unknown> | void> = {
   'answer-os': async () => {
     const u = fresh(true);
     combatHud(u);
-    void u.cardTurn(CARD_VIEW);
+    playedTurn(u);
     void u.answer(answerReq({ card: CARDS[0], numberLineUses: 1 })).then(r => log('answer', r));
     await sleep(500);
     tap('.ans-os');
@@ -363,7 +375,7 @@ const STATES: Record<string, () => Promise<unknown> | void> = {
   'answer-correct': async () => {
     const u = fresh(true);
     combatHud(u);
-    void u.cardTurn(CARD_VIEW);
+    playedTurn(u);
     void u.answer(answerReq({ card: CARDS[0] })).then(r => log('answer', r));
     setTimeout(() => tap('.ans-opt:nth-child(2)'), 600);
   },
@@ -430,7 +442,7 @@ const STATES: Record<string, () => Promise<unknown> | void> = {
   pause: () => {
     const u = fresh(true);
     combatHud(u);
-    void u.cardTurn(CARD_VIEW);
+    playedTurn(u);
     const loop = (q: 'auto' | 'low' | 'medium' | 'high'): void => {
       void u.pause({ canReturnToBase: true, quality: q }).then(a => {
         log('pause', a);
@@ -489,7 +501,7 @@ function overflow(): string[] {
   const W = innerWidth;
   const H = innerHeight;
   rootEl.querySelectorAll<HTMLElement>('*').forEach(el => {
-    if (el.closest('.cel-rays, .cel-confetti, .hud-floats, .sparkles, .ct-slot.is-flying, .ui-fade')) return;
+    if (el.closest('.cel-rays, .cel-confetti, .hud-floats, .sparkles, .ct-slot.is-flying, .ui-fade, .ct.is-busy .ct-hand')) return;
     if (!el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return;
     const r = el.getBoundingClientRect();
     if (r.width === 0 || r.height === 0) return;

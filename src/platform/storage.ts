@@ -177,12 +177,15 @@ export function createStorage(opts: StorageOptions, kv: KvAdapter = idbKv): Stor
     save(s) {
       pending = s;
       if (!scheduled) {
-        scheduled = exclusive(async () => {
+        const job: Promise<void> = exclusive(async () => {
+          // clear() unieważnia zadanie zaplanowane przed nim — zapis zlecony PO clear() wykona nowe zadanie (po czyszczeniu).
+          if (scheduled !== job) return;
           scheduled = null;
           const cur = pending;
           pending = null;
           if (cur) await writeNow(cur);
         });
+        scheduled = job;
       }
       return scheduled;
     },
@@ -208,11 +211,14 @@ export function createStorage(opts: StorageOptions, kv: KvAdapter = idbKv): Stor
     },
 
     clear() {
-      pending = null; // oczekujący zapis traci ważność
+      // Oczekujący zapis traci ważność; save() wywołane po clear() trafi do kolejki ZA czyszczeniem.
+      pending = null;
+      scheduled = null;
       return exclusive(async () => {
         await kv.del(keys.main);
         await kv.del(keys.backup1);
         await kv.del(keys.backup2);
+        await kv.del(keys.corrupt);
         lastGood = null;
         b1 = { json: null, good: false };
       });

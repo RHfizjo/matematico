@@ -59,7 +59,7 @@
 .in-stick-hint-hand { display: inline-block; font-size: 24px; animation: in-hand 1.6s ease-in-out infinite; }
 .in-stick.is-active .in-stick-hint, .in-stick.no-hint .in-stick-hint { opacity: 0; }
 .in-stick.no-hint .in-stick-hint { display: none; }
-.in-stick:not(.is-active):not(.no-hint) { opacity: 0.85; }
+.in-stick:not(.is-active):not(.no-hint) { opacity: 1; } /* podpowiedź „Przesuń” w pełni czytelna */
 @keyframes in-hand {
   0%, 100% { transform: translateX(-4px) rotate(-8deg); }
   50% { transform: translateX(6px) rotate(8deg); }
@@ -79,7 +79,8 @@
 
 /* Przycisk akcji: prawy dolny róg, ikona + etykieta pod spodem. */
 .in-action-wrap {
-  position: absolute; right: calc(var(--gutter, 32px) + 28px); bottom: calc(var(--gutter, 32px) + 6px);
+  /* etykieta wystaje 30 px pod przycisk (jest jego dzieckiem, więc też reaguje na dotyk) */
+  position: absolute; right: calc(var(--gutter, 32px) + 28px); bottom: calc(var(--gutter, 32px) + 36px);
   display: flex; flex-direction: column; align-items: center; pointer-events: none;
 }
 .in-action-wrap.is-off { visibility: hidden; }
@@ -100,15 +101,18 @@
 .in-action:focus-visible { outline: 5px solid var(--primary, #3fa7ff); outline-offset: 4px; }
 .in-action-ic {
   font: 400 76px/1 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
-  filter: drop-shadow(0 4px 0 rgba(31, 42, 68, 0.25)); transform: translateY(-2px);
+  filter: drop-shadow(0 4px 0 rgba(31, 42, 68, 0.25)); translate: 0 -2px; /* translate, nie transform — animacja „swap” skaluje transformem */
   pointer-events: none;
 }
+.in-action-ic.is-svg { display: block; width: 102px; height: 102px; translate: 0 -9px; }
+.in-action-ic.is-svg svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .in-action-label {
-  position: relative; z-index: 1; margin-top: -24px; min-width: 110px; text-align: center; white-space: nowrap;
+  /* dziecko przycisku: dotknięcie napisu = dotknięcie przycisku */
+  position: absolute; z-index: 1; left: 50%; top: calc(100% - 24px); translate: -50% 0;
+  min-width: 110px; text-align: center; white-space: nowrap;
   font: 900 30px/1 var(--font, 'Nunito', system-ui, sans-serif); color: var(--ink, #1f2a44);
   background: var(--paper, #fffaf0); border: 4px solid var(--ink, #1f2a44); border-radius: 999px;
   padding: 7px 20px 9px; box-shadow: 0 4px 0 rgba(31, 42, 68, 0.22);
-  pointer-events: none;
 }
 .in-action-wrap.pop-in { animation: in-pop-in 380ms cubic-bezier(0.2, 1.5, 0.4, 1) both; }
 .in-action-wrap.pop-out { animation: in-pop-out 200ms ease-in both; }

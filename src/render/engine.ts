@@ -105,6 +105,8 @@ export class Engine {
       radius: p.bloom === 'half+' ? 0.8 : 0.7,
       levels: p.bloomLevels,
     });
+    // Świadome odstępstwo od GDD 16.1 („AgX lub ACES”): AgX sprawdzony na zrzutach — sprana, pastelowa
+    // trawa i niski kontrast; Khronos PBR Neutral zachowuje odcienie i nasycenie (żywy styl dla dziecka).
     const tone = new ToneMappingEffect({ mode: ToneMappingMode.NEUTRAL });
     const sat = new HueSaturationEffect({ saturation: this.satBase });
     this.sat = sat;

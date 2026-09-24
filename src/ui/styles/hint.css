@@ -1,6 +1,9 @@
 /* Podpowiedź: oś liczbowa, kostki, kroki, podsumowanie. */
 
 .hint-modal { background: rgba(20, 28, 50, 0.38); }
+/* W walce panel podpowiedzi schodzi pod pasek Czaru (z pnączami), zamiast go przecinać. */
+.ui-has-enemy .hint-modal { padding: 190px 0 16px; }
+@media (max-height: 840px) { .ui-has-enemy .hint-modal { padding: 0; } }
 .hint-panel {
   width: min(1000px, calc(100vw - 2 * var(--gutter))); max-height: calc(100vh - 2 * var(--gutter));
   padding: 24px 40px 26px; display: flex; flex-direction: column; gap: 16px;

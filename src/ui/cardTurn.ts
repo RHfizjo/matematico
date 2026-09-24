@@ -39,7 +39,7 @@ export function fanLayout(n: number, viewportW: number): { x: number; y: number;
   const out: { x: number; y: number; r: number }[] = [];
   for (let i = 0; i < n; i++) {
     const c = i - (n - 1) / 2;
-    out.push({ x: Math.round(c * spacing), y: Math.round(c * c * 6), r: +(c * 2.8).toFixed(2) });
+    out.push({ x: Math.round(c * spacing), y: Math.round(c * c * 5), r: +(c * 2.8).toFixed(2) });
   }
   return out;
 }
@@ -69,24 +69,29 @@ export function createCardTurn(ctx: UiContext, hud: HudApi) {
   const root = h('div', { class: 'ct passthrough is-hidden is-busy' }, pauseBtn, left, tip, msg, hand, right);
   ctx.layers.cards.append(root);
 
+  /** true od dotknięcia grywalnej karty do rozwiązania obietnicy (karta leci — reszta zablokowana). */
+  let selecting = false;
+
   const choose = (c: CardTurnChoice): void => {
     if (!pending) return;
     const r = pending;
     pending = null;
+    selecting = false;
     keyOff?.();
     keyOff = null;
     root.classList.add('is-busy');
+    root.classList.remove('is-selecting');
     tip.classList.add('is-hidden');
     r(c);
   };
 
   onTap(pauseBtn, () => {
-    if (!pending) return;
+    if (!pending || selecting) return;
     ctx.sfx('tap');
     choose({ kind: 'pause' });
   });
   onTap(endBtn, () => {
-    if (!pending) return;
+    if (!pending || selecting) return;
     ctx.sfx('tap');
     choose({ kind: 'end' });
   });
@@ -111,7 +116,7 @@ export function createCardTurn(ctx: UiContext, hud: HudApi) {
   };
 
   const tapCard = (slot: Slot): void => {
-    if (!pending || slot.flying || !view) return;
+    if (!pending || selecting || slot.flying || !view) return;
     if (!slot.face.playable) {
       ctx.sfx('wrong');
       shake(slot.wrap);
@@ -122,6 +127,10 @@ export function createCardTurn(ctx: UiContext, hud: HudApi) {
       return;
     }
     ctx.sfx('whoosh');
+    // Od tej chwili wybór jest przesądzony: blokujemy inne karty, „Koniec tury” i pauzę (podwójne dotknięcie
+    // nie może zgubić karty z ręki ani rozjechać stanu z tym, co dostaje game/).
+    selecting = true;
+    root.classList.add('is-selecting');
     slot.flying = true;
     const r = slot.wrap.getBoundingClientRect();
     const dx = window.innerWidth / 2 - (r.left + r.width / 2);
@@ -215,7 +224,8 @@ export function createCardTurn(ctx: UiContext, hud: HudApi) {
     turn(v: CardTurnView): Promise<CardTurnChoice> {
       view = v;
       pending = null;
-      root.classList.remove('is-hidden');
+      selecting = false;
+      root.classList.remove('is-hidden', 'is-selecting');
       hud.setShield(v.shield);
       hud.setIntent(v.intent);
       renderStats(v);
@@ -230,7 +240,8 @@ export function createCardTurn(ctx: UiContext, hud: HudApi) {
           if (Number.isInteger(n) && n >= 1 && n <= order.length) {
             const s = slots.get(order[n - 1] ?? '');
             if (s) tapCard(s);
-          } else if (e.key === 'e' || e.key === 'E' || e.key === 'Enter') choose({ kind: 'end' });
+          } else if (selecting) return;
+          else if (e.key === 'e' || e.key === 'E' || e.key === 'Enter') choose({ kind: 'end' });
           else if (e.key === 'Escape') choose({ kind: 'pause' });
         });
       });

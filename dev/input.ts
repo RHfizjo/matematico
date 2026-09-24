@@ -14,7 +14,7 @@
 import '../src/ui/theme.css';
 import type { ActionIcon, MusicTrack, SfxName } from '../src/game/contracts';
 import type { SaveV1 } from '../src/core/types';
-import { ACTION_EMOJI, createInput } from '../src/input';
+import { ACTION_EMOJI, ACTION_SVG, createInput } from '../src/input';
 import { createPlatform } from '../src/platform';
 import { measure, renderMusicOffline, renderSfxOffline } from '../src/platform/audio';
 
@@ -193,7 +193,11 @@ const emojiStrip = el(
   'div',
   { cls: 'emoji-strip' },
   ...(Object.keys(ACTION_EMOJI) as ActionIcon[]).map(k => {
-    const s = el('span', { title: k }, ACTION_EMOJI[k], el('small', {}, k));
+    const svg = ACTION_SVG[k];
+    const ic = el('i', { style: 'font-style:normal;display:block;width:30px;height:30px;line-height:30px' } as Partial<HTMLElement>);
+    if (svg) ic.innerHTML = svg;
+    else ic.textContent = ACTION_EMOJI[k];
+    const s = el('span', { title: k }, ic, el('small', {}, k));
     s.style.cursor = 'pointer';
     s.addEventListener('click', () => void demo(`action:${k}`));
     return s;

@@ -326,11 +326,12 @@ export const SFX: Record<SfxName, Recipe> = {
     noise(s, { t: t + 0.28, a: 0.06, d: 0.4, peak: 0.05, filter: 'highpass', f: 7500, dest });
   },
 
-  // krok: bardzo cichy stuk (lekko losowy)
+  // krok: cichy, miękki „tup” (lekko losowy). Energia w paśmie 300–2000 Hz — małe głośniki tabletu
+  // prawie nie oddają basu, więc dawny stuk 180 Hz / szum do 900 Hz był na tablecie niesłyszalny.
   step(s, t, p, dest) {
-    const v = 0.85 + Math.random() * 0.3;
-    noise(s, { t, a: 0.001, d: 0.04, peak: 0.26, filter: 'lowpass', f: 900 * v * p, q: 0.8, dest });
-    tone(s, { f: 180 * v * p, t, a: 0.001, d: 0.035, peak: 0.1, dest });
+    const v = 0.88 + Math.random() * 0.24;
+    noise(s, { t, a: 0.002, d: 0.045, peak: 0.34, filter: 'bandpass', f: 1300 * v * p, q: 0.9, dest });
+    tone(s, { type: 'triangle', f: 330 * v * p, f2: 240 * v * p, glide: 0.04, t, a: 0.002, d: 0.045, peak: 0.16, dest });
   },
 
   // zamach brainrota: narastające napięcie (drżące)

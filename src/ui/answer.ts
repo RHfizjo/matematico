@@ -72,6 +72,8 @@ export function answerPanel(ctx: UiContext, req: AnswerRequest): Promise<AnswerR
     let finished = false;
     let unlockT = performance.now() + lockMs;
     let firstMs: number | null = null;
+    /** Czas w chwili upływu limitu (bez doliczania pokazu wyniku). */
+    let timeUpMs: number | null = null;
     let firstGiven: number | null = null;
     let usedNumberLine = false;
     let usedRetry = false;
@@ -154,6 +156,7 @@ export function answerPanel(ctx: UiContext, req: AnswerRequest): Promise<AnswerR
       viz = null;
       help.textContent = '';
       help.className = `ans-help help-${kind}`;
+      panel.classList.add('has-help');
       const head =
         kind === 'retry'
           ? h('div', { class: 'ans-help-title' }, icon('bulb'), h('span', null, 'Prawie! ', hint.title))
@@ -233,6 +236,17 @@ export function answerPanel(ctx: UiContext, req: AnswerRequest): Promise<AnswerR
       refreshOk();
     }
 
+    /** Koniec czasu (2 × limit): bez odpowiedzi — spokojnie pokazujemy wynik i zamykamy (bez czerwieni). */
+    function timeUp(): void {
+      if (finished) return;
+      locked = true;
+      timeUpMs = Math.max(0, Math.round(performance.now() - unlockT));
+      panel.classList.add('is-timeup');
+      taskView.setSlot(String(task.answer), 'good');
+      for (const o of optionBtns) if (o.value === task.answer) o.el.classList.add('is-reveal');
+      timers.after(1200, () => close(null, true));
+    }
+
     function close(given: number | null, timedOut: boolean): void {
       if (finished) return;
       finished = true;
@@ -240,7 +254,7 @@ export function answerPanel(ctx: UiContext, req: AnswerRequest): Promise<AnswerR
       timers.clear();
       viz?.stop();
       keyOff?.();
-      const ms = firstMs ?? Math.max(0, Math.round(performance.now() - unlockT));
+      const ms = firstMs ?? timeUpMs ?? Math.max(0, Math.round(performance.now() - unlockT));
       const result: AnswerResult = { given, ms, timedOut, usedNumberLine, usedRetry, firstGiven };
       void hideAndRemove(root).then(() => resolve(result));
     }
@@ -260,8 +274,8 @@ export function answerPanel(ctx: UiContext, req: AnswerRequest): Promise<AnswerR
         const r = ring;
         timers.after(limit, () => r.classList.add('is-closed'));
         timers.after(limit * 2, () => {
-          if (!finished && !locked) close(null, true);
-          else if (!finished) timers.after(1800, () => close(null, true));
+          if (!finished && !locked) timeUp();
+          else if (!finished) timers.after(1800, () => timeUp());
         });
       }
     });

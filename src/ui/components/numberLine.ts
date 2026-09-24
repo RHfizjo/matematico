@@ -66,14 +66,14 @@ const ease = (t: number): number => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2
 export function numberLine(spec: { from: number; jumps: number[] }, opts: NumberLineOpts = {}): NumberLineView {
   const compact = opts.compact ?? false;
   const W = opts.width ?? (compact ? 640 : 900);
-  const H = opts.height ?? (compact ? 128 : 230);
+  const H = opts.height ?? (compact ? 116 : 230);
   const shown = Math.max(0, Math.min(spec.jumps.length, opts.shown ?? spec.jumps.length));
   const L = numberLineLayout(spec.from, spec.jumps);
   const padX = compact ? 30 : 40;
   const lineY = H - (compact ? 48 : 66);
   const x = (v: number): number => padX + ((v - L.min) / (L.max - L.min)) * (W - 2 * padX);
   const unitPx = (W - 2 * padX) / (L.max - L.min);
-  const fsLabel = compact ? 16 : 20;
+  const fsLabel = compact ? 18 : 20;
   const labelY = lineY + (compact ? 28 : 36);
   const pillH = compact ? 28 : 36;
   const digitW = compact ? 10 : 12.5;
@@ -98,7 +98,7 @@ export function numberLine(spec: { from: number; jumps: number[] }, opts: Number
     // Punkty skoków mają własne kółka z liczbą — zwykłe etykiety, które by na nie nachodziły, pomijamy.
     const lw = String(v).length * digitW * 0.9;
     // Etykieta dokładnie pod punktem zostaje (kółko ją zakryje, gdy się pojawi) — bez „dziur” w trakcie animacji.
-    const hit = shownStops.some((sv, i) => sv !== v && Math.abs((stopXs[i] ?? 0) - vx) < pillW(sv) / 2 + lw / 2 + 3);
+    const hit = shownStops.some((sv, i) => sv !== v && Math.abs((stopXs[i] ?? 0) - vx) < pillW(sv) / 2 + lw / 2 + 1);
     if (hit) continue;
     svg.append(s('text', { x: vx, y: labelY, class: `nl-label${v % 10 === 0 ? ' nl-label-10' : ''}`, 'font-size': fsLabel, 'dominant-baseline': 'central' }, String(v)));
   }
@@ -115,7 +115,7 @@ export function numberLine(spec: { from: number; jumps: number[] }, opts: Number
     const g = s('g', { class: `nl-pill ${cls}`, transform: `translate(${x(v)} ${lineY})` });
     g.append(s('circle', { cx: 0, cy: 0, r: compact ? 6 : 8, class: 'nl-dot' }));
     g.append(s('rect', { x: -w / 2, y: labelY - lineY - pillH / 2, width: w, height: pillH, rx: pillH / 2, class: 'nl-pill-bg' }));
-    g.append(s('text', { x: 0, y: labelY - lineY + 1, class: 'nl-pill-t', 'font-size': compact ? 17 : 21 }, String(v)));
+    g.append(s('text', { x: 0, y: labelY - lineY + 1, class: 'nl-pill-t', 'font-size': compact ? 18 : 21 }, String(v)));
     return g;
   };
 
@@ -138,11 +138,13 @@ export function numberLine(spec: { from: number; jumps: number[] }, opts: Number
     });
     arcLayer.append(path);
     const label = signed(j);
-    const tw = label.length * (compact ? 11 : 14) + (compact ? 14 : 18);
+    // Etykieta skoku („+2”, „−5”) to najważniejsza informacja podpowiedzi — duża i czytelna.
+    const tagH = compact ? 28 : 40;
+    const tw = label.length * (compact ? 11.5 : 17) + (compact ? 16 : 22);
     const peakY = y0 - hgt;
-    const tag = s('g', { class: `nl-jumptag ${j < 0 ? 'minus' : 'plus'}`, transform: `translate(${cx} ${peakY - (compact ? 14 : 18)})`, opacity: 0 });
-    tag.append(s('rect', { x: -tw / 2, y: compact ? -13 : -16, width: tw, height: compact ? 26 : 32, rx: compact ? 13 : 16 }));
-    tag.append(s('text', { x: 0, y: 1, 'font-size': compact ? 17 : 22 }, label));
+    const tag = s('g', { class: `nl-jumptag ${j < 0 ? 'minus' : 'plus'}`, transform: `translate(${cx} ${peakY - (compact ? 14 : 20)})`, opacity: 0 });
+    tag.append(s('rect', { x: -tw / 2, y: -tagH / 2, width: tw, height: tagH, rx: tagH / 2 }));
+    tag.append(s('text', { x: 0, y: 1, 'font-size': compact ? 18 : 27 }, label));
     arcLayer.append(tag);
     const last = i === spec.jumps.length - 1;
     const pill = makePill(b, last ? 'nl-end' : 'nl-mid');

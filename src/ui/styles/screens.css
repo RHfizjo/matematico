@@ -53,7 +53,7 @@
 }
 .prof-stage {
   flex: none; width: 300px; height: 440px; display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(ellipse at 50% 88%, #bfe6a8 0 30%, transparent 31%), radial-gradient(circle at 50% 40%, #e3f5ff, #c6e9ff 70%);
+  background: radial-gradient(ellipse 118px 34px at 50% 91%, #b4e39a 0 96%, transparent 100%), radial-gradient(circle at 50% 40%, #e3f5ff, #c6e9ff 70%);
   border: 4px solid var(--ink); border-radius: 30px; box-shadow: inset 0 -10px 0 rgba(31, 42, 68, 0.08);
 }
 .prof-form { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }

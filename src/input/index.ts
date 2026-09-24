@@ -26,9 +26,9 @@ const ACTION_COOLDOWN_MS = 250;
 /** Margines podstawy gałki od krawędzi ekranu (gesty systemowe Androida). */
 const EDGE_MARGIN = 14;
 
-/** Emoji dla ikon akcji (Noto Color Emoji na Androidzie). */
+/** Emoji dla ikon akcji (Noto Color Emoji na Androidzie). 'catch' ma własny rysunek (ACTION_SVG). */
 export const ACTION_EMOJI: Record<ActionIcon, string> = {
-  catch: '🥅',
+  catch: '🦋',
   open: '🗝️',
   enter: '🚪',
   talk: '💬',
@@ -40,6 +40,39 @@ export const ACTION_EMOJI: Record<ActionIcon, string> = {
   portal: '🌀',
   gate: '🏰',
 };
+
+/**
+ * Ikony rysowane (styl HUD: grube obrysy w kolorze atramentu). Emoji 🥅 (bramka piłkarska) myliło się z piłką nożną,
+ * a dłonie 🤲/🫴 giną na żółtym przycisku — dlatego „Złap” to siatka na motyle.
+ */
+export const ACTION_SVG: Partial<Record<ActionIcon, string>> = {
+  catch:
+    '<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">' +
+    '<defs><clipPath id="in-net-clip"><path d="M23 28C20 43 32 58 46 54C58 50 61 35 57 17Z"/></clipPath></defs>' +
+    // siatka (worek) za obręczą
+    '<path d="M23 28C20 43 32 58 46 54C58 50 61 35 57 17Z" fill="#ffffff" stroke="#1f2a44" stroke-width="4" stroke-linejoin="round"/>' +
+    '<g clip-path="url(#in-net-clip)" stroke="#8fb4dc" stroke-width="2.4" fill="none">' +
+    '<path d="M14 30L50 66M22 24L58 60M30 18L66 54M42 14L70 42"/><path d="M14 56L50 20M22 64L58 28M34 66L66 34"/></g>' +
+    // kij
+    '<path d="M9 58L26 37" stroke="#1f2a44" stroke-width="11" stroke-linecap="round"/>' +
+    '<path d="M9 58L26 37" stroke="#d99a5b" stroke-width="5" stroke-linecap="round"/>' +
+    // obręcz
+    '<ellipse cx="40" cy="22.5" rx="17.5" ry="8.5" transform="rotate(-17 40 22.5)" fill="none" stroke="#1f2a44" stroke-width="9"/>' +
+    '<ellipse cx="40" cy="22.5" rx="17.5" ry="8.5" transform="rotate(-17 40 22.5)" fill="none" stroke="#ff6b8a" stroke-width="3.6"/>' +
+    // iskierka
+    '<path d="M12 8c1 5 3 7 8 8c-5 1-7 3-8 8c-1-5-3-7-8-8c5-1 7-3 8-8Z" fill="#ffffff" stroke="#1f2a44" stroke-width="2.5" stroke-linejoin="round"/>' +
+    '</svg>',
+};
+
+/**
+ * Ikony spoza obecnego kontraktu ActionIcon (np. stół z kartami) — gotowe, gdy game/ doda je do typu.
+ * Nieznana ikona dostaje ✋.
+ */
+const EXTRA_EMOJI: Record<string, string | undefined> = { cards: '🃏', trade: '🔄' };
+
+function iconEmoji(icon: string): string {
+  return (ACTION_EMOJI as Record<string, string | undefined>)[icon] ?? EXTRA_EMOJI[icon] ?? '✋';
+}
 
 const PAUSE_SVG =
   '<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">' +
@@ -113,8 +146,9 @@ export function createInput(root: HTMLElement): InputApi {
   const actionBtn = el('button', 'in-action', { type: 'button', 'aria-label': 'Akcja' });
   const actionIc = el('span', 'in-action-ic', { 'aria-hidden': 'true' });
   const actionLabel = el('span', 'in-action-label');
-  actionBtn.append(actionIc);
-  actionWrap.append(actionBtn, actionLabel);
+  // Etykieta jest WEWNĄTRZ przycisku: dotknięcie napisu „Złap” też wywołuje akcję (dzieci stukają w napis).
+  actionBtn.append(actionIc, actionLabel);
+  actionWrap.append(actionBtn);
 
   layer.append(zone, stick, actionWrap, pauseBtn);
   root.append(layer);
@@ -281,7 +315,10 @@ export function createInput(root: HTMLElement): InputApi {
       popTimer = null;
     }
     if (next) {
-      actionIc.textContent = ACTION_EMOJI[next.icon] ?? '✋';
+      const svg = ACTION_SVG[next.icon];
+      actionIc.classList.toggle('is-svg', svg !== undefined);
+      if (svg !== undefined) actionIc.innerHTML = svg;
+      else actionIc.textContent = iconEmoji(next.icon);
       actionLabel.textContent = next.label;
       actionBtn.setAttribute('aria-label', next.label);
       if (!prev || actionWrap.classList.contains('is-off') || actionWrap.classList.contains('pop-out')) {

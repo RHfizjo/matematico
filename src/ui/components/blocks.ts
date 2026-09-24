@@ -3,6 +3,7 @@
  * pierwsze `highlightRows` rzędów złote. Rzędy pojawiają się po kolei.
  */
 import { h } from '../dom';
+import { plural } from '../util';
 
 export interface BlocksView {
   el: HTMLElement;
@@ -25,7 +26,7 @@ export function blocksGrid(
   const grid = h('div', {
     class: 'blocks',
     style: { gridTemplateColumns: `repeat(${cols}, ${size}px)`, gap: `${gap}px` },
-    attrs: { role: 'img', 'aria-label': `${rows} rzędów po ${cols} kostek` },
+    attrs: { role: 'img', 'aria-label': `${rows} ${plural(rows, 'rząd', 'rzędy', 'rzędów')} po ${cols} ${plural(cols, 'kostce', 'kostki', 'kostek')}` },
   });
   grid.style.setProperty('--cube', `${size}px`);
   const rowEls: HTMLElement[][] = [];
