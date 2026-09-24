@@ -1,0 +1,85 @@
+/* Motyw UI — tokeny i style bazowe. Wszystkie panele korzystają z tych zmiennych. */
+@import '@fontsource/nunito/latin-ext-700.css';
+@import '@fontsource/nunito/latin-ext-800.css';
+@import '@fontsource/nunito/latin-ext-900.css';
+@import '@fontsource/nunito/latin-700.css';
+@import '@fontsource/nunito/latin-800.css';
+@import '@fontsource/nunito/latin-900.css';
+
+:root {
+  --font: 'Nunito', system-ui, sans-serif;
+  /* Paleta: żywe, lekko pastelowe */
+  --sky: #9fd8ff;
+  --ink: #1f2a44;
+  --ink-soft: #4a5775;
+  --paper: #fffaf0;
+  --paper-2: #fff3d6;
+  --line: #e7d7b0;
+  --primary: #3fa7ff;
+  --primary-dark: #1e78c8;
+  --good: #3ccf6e;
+  --good-dark: #23a052;
+  --warn: #ffb020;
+  --bad: #ff6b6b;
+  --czar: #b25cff; /* pasek Czaru brainrota */
+  --shield: #58c4ff;
+  --energy: #ffd23f;
+  --hp: #ff5d7a;
+  --glam: #ffd6f5;
+  --gold: #ffcf40;
+  --rare: #7b61ff;
+  --legendary: #ff9f1c;
+  --radius: 22px;
+  --radius-sm: 14px;
+  --shadow: 0 6px 0 rgba(31, 42, 68, 0.18), 0 12px 28px rgba(31, 42, 68, 0.18);
+  --shadow-sm: 0 3px 0 rgba(31, 42, 68, 0.18);
+  --gutter: 32px; /* margines od krawędzi (gesty systemowe Androida) */
+  --fs-xxl: 84px; /* działanie w panelu odpowiedzi */
+  --fs-xl: 48px;
+  --fs-l: 32px;
+  --fs-m: 24px;
+  --fs-s: 19px;
+  --tap-min: 120px; /* minimalny przycisk odpowiedzi */
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden; background: var(--sky);
+  font-family: var(--font); color: var(--ink);
+  user-select: none; -webkit-user-select: none; touch-action: none; overscroll-behavior: none;
+}
+#game { position: fixed; inset: 0; }
+#game canvas { display: block; width: 100%; height: 100%; }
+#ui { position: fixed; inset: 0; pointer-events: none; }
+#ui .layer { position: absolute; inset: 0; pointer-events: none; }
+#ui .layer > * { pointer-events: auto; }
+#ui .layer > .passthrough { pointer-events: none; }
+
+.btn {
+  font: 800 var(--fs-m) / 1.1 var(--font); color: var(--ink);
+  background: var(--paper); border: 3px solid var(--ink); border-radius: var(--radius-sm);
+  padding: 14px 22px; min-height: 64px; box-shadow: var(--shadow-sm); cursor: pointer;
+  transition: transform 80ms ease, box-shadow 80ms ease, filter 120ms;
+}
+.btn.is-pressed { transform: translateY(3px); box-shadow: 0 0 0 rgba(0,0,0,0); }
+.btn:disabled, .btn[aria-disabled='true'] { filter: grayscale(0.8) opacity(0.55); }
+.btn-primary { background: var(--primary); color: #fff; border-color: var(--primary-dark); }
+.btn-good { background: var(--good); color: #fff; border-color: var(--good-dark); }
+.btn-big { font-size: var(--fs-l); padding: 18px 30px; min-height: 84px; }
+.btn-ghost { background: rgba(255, 255, 255, 0.7); }
+
+.panel {
+  background: var(--paper); border: 4px solid var(--ink); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 24px;
+}
+.panel-title { font: 900 var(--fs-l) / 1.1 var(--font); margin: 0 0 12px; }
+.muted { color: var(--ink-soft); }
+
+/* Przejścia wejścia/wyjścia (dom.ts: show/hideAndRemove) */
+.enter { opacity: 0; transform: scale(0.96) translateY(10px); transition: opacity 200ms ease, transform 220ms cubic-bezier(.2,1.4,.4,1); }
+.enter.shown { opacity: 1; transform: none; }
+.leave { opacity: 0 !important; transform: scale(0.97) !important; transition: opacity 180ms ease, transform 180ms ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .enter, .leave { transition: none; }
+}

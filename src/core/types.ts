@@ -328,7 +328,11 @@ export type CombatEvent =
   | { t: 'phase'; phase: number; vines: number }
   | { t: 'heroDown' }
   | { t: 'rescued' }
-  | { t: 'transformed' };
+  | { t: 'transformed' }
+  | { t: 'shieldGain'; amount: number; result: QteResult }
+  | { t: 'heal'; amount: number; result: QteResult }
+  | { t: 'weaken'; pct: number; result: QteResult }
+  | { t: 'shieldAbsorb'; absorbed: number };
 
 export interface CombatState {
   enemyId: string;
@@ -349,6 +353,69 @@ export interface CombatState {
   won: boolean;
   log: CombatEvent[];
 }
+
+// ───────────────────────────── Karty (GDD v0.3, sekcja 7 i 13.5) ─────────────────────────────
+
+export type CardKind =
+  | 'attack' //      zdejmuje Czar
+  | 'strongAttack' // dużo Czaru (koszt 2)
+  | 'shield' //      tarcza na turę brainrota
+  | 'bigShield' //   duża tarcza
+  | 'heal' //        leczenie bohatera
+  | 'weaken' //      osłabia następny ruch brainrota (power = procent 0..100)
+  | 'multiHit' //    power2 ciosów po power
+  | 'combo'; //      power Czaru + power2 tarczy
+
+export type CardRarity = Rarity | 'legendary';
+
+export interface CardDef {
+  id: string;
+  name: string;
+  source: 'starter' | 'creature' | 'glam';
+  /** Id stworka (source 'creature') lub brainrota (source 'glam'); null dla startowych. */
+  sourceId: string | null;
+  rarity: CardRarity;
+  kind: CardKind;
+  cost: 1 | 2;
+  /** Siła przy poprawnej odpowiedzi (patrz CardKind). */
+  power: number;
+  /** multiHit: liczba ciosów; combo: tarcza; inaczej 0. */
+  power2: number;
+  /** Z jakiej puli działań losowane jest zadanie przy zagraniu (progression.actionCategories). */
+  pool: ActionKind;
+  /** Opis efektu dla dziecka, np. "Zdejmij 8 Czaru." */
+  description: string;
+  /** Portret na karcie (ModelId z game/contracts), np. 'creature:plusik', 'glam:slimakorro'. */
+  art: string;
+}
+
+/** Konkretna kopia karty w walce. */
+export interface CardInstance {
+  uid: string;
+  cardId: string;
+}
+
+export interface CardBattleState {
+  combat: CombatState;
+  drawPile: CardInstance[];
+  hand: CardInstance[];
+  discard: CardInstance[];
+  energy: number;
+  maxEnergy: number;
+  /** Tarcza zebrana w tej turze (pochłania obrażenia w turze brainrota, potem znika). */
+  shield: number;
+  /** Osłabienie następnego ruchu brainrota (0..1). */
+  weaken: number;
+  /** Zapowiedziany ruch brainrota na jego najbliższą turę. */
+  intents: EnemyIntent[];
+  turnNo: number;
+  uidCounter: number;
+}
+
+export type TradeOffer =
+  | { id: string; kind: 'threeForOne'; cardId: string }
+  | { id: string; kind: 'daily'; cardId: string; price: ForgeCost }
+  | { id: string; kind: 'sell'; cardId: string; digits: number };
 
 // ───────────────────────────── Stworki, cyfry, brama, sprzęt ─────────────────────────────
 

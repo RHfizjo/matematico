@@ -1,0 +1,13 @@
+<!doctype html><html><body style="margin:0"><canvas id="c" width="400" height="300"></canvas>
+<script type="module">
+import * as THREE from 'three';
+const r = new THREE.WebGLRenderer({ canvas: document.getElementById('c') });
+r.shadowMap.enabled = true;
+const s = new THREE.Scene(); s.background = new THREE.Color('#9fd8ff');
+const cam = new THREE.PerspectiveCamera(50, 4/3, 0.1, 100); cam.position.set(3,3,5); cam.lookAt(0,0,0);
+const box = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshLambertMaterial({ color: '#5c5' })); box.castShadow = true; box.position.y = 0.5; s.add(box);
+const g = new THREE.Mesh(new THREE.PlaneGeometry(10,10), new THREE.MeshLambertMaterial({ color: '#dd9' })); g.rotation.x = -Math.PI/2; g.receiveShadow = true; s.add(g);
+const l = new THREE.DirectionalLight('#fff', 2); l.position.set(3,6,2); l.castShadow = true; s.add(l); s.add(new THREE.HemisphereLight('#bde', '#686', 1));
+r.render(s, cam);
+console.log('webgl2', r.capabilities.isWebGL2, 'renderer', r.getContext().getParameter(r.getContext().VERSION));
+</script></body></html>
