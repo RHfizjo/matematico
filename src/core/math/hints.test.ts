@@ -9,6 +9,9 @@ import { generateTask } from './generators';
 import { hintFor } from './hints';
 import { FORMATS, RANGES, checkArithmetic, makeSettings } from './testkit';
 
+// Ciężkie testy właściwości: przy równoległym uruchomieniu całego zestawu 5 s (domyślnie) nie wystarcza.
+const SLOW_TEST_MS = 60_000;
+
 const COMBOS: { cat: CategoryId; range: NumberRange }[] = RANGES.flatMap((range) =>
   ALL_CATEGORY_IDS.filter((cat) => isCategoryAvailable(cat, makeSettings(range))).map((cat) => ({ cat, range })),
 );
@@ -194,7 +197,7 @@ describe('hintFor — przykłady z GDD 5.4', () => {
   });
 });
 
-describe('hintFor — właściwości', () => {
+describe('hintFor — właściwości', { timeout: SLOW_TEST_MS }, () => {
   it('wszystkie kategorie, zakresy i formaty: poprawna arytmetyka, 1–3 kroki, firstStep bez wyniku', () => {
     fc.assert(
       fc.property(fc.constantFrom(...COMBOS), fc.constantFrom(...FORMATS), fc.integer(), ({ cat, range }, format, seed) => {
@@ -256,7 +259,7 @@ describe('hintFor — właściwości', () => {
   });
 });
 
-describe('hintFor — regresje z przeglądu', () => {
+describe('hintFor — regresje z przeglądu', { timeout: SLOW_TEST_MS }, () => {
   /** Wynik jako osobna liczba w tekście (nie tylko po „=”). */
   const mentions = (text: string, n: number): boolean => new RegExp(`(?<!\\d)${n}(?!\\d)`).test(text);
 

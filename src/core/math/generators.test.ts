@@ -8,6 +8,9 @@ import { categoriesOfFact, factAnswer, factsOf, parseFact } from './facts';
 import { generateTask } from './generators';
 import { FORMATS, RANGES, makeSettings } from './testkit';
 
+// Ciężkie testy właściwości: przy równoległym uruchomieniu całego zestawu 5 s (domyślnie) nie wystarcza.
+const SLOW_TEST_MS = 60_000;
+
 const COMBOS: { cat: CategoryId; range: NumberRange }[] = RANGES.flatMap((range) =>
   ALL_CATEGORY_IDS.filter((cat) => isCategoryAvailable(cat, makeSettings(range))).map((cat) => ({ cat, range })),
 );
@@ -65,7 +68,7 @@ function checkCategoryDefinition(task: Task, range: NumberRange): void {
   }
 }
 
-describe('generateTask — właściwości (wszystkie kategorie, zakresy, formaty)', () => {
+describe('generateTask — właściwości (wszystkie kategorie, zakresy, formaty)', { timeout: SLOW_TEST_MS }, () => {
   it('poprawna odpowiedź, tekst, opcje, kategorie', () => {
     fc.assert(
       fc.property(
@@ -229,7 +232,7 @@ describe('generateTask — przypadki szczególne', () => {
   });
 });
 
-describe('generateTask — statystyka opcji', () => {
+describe('generateTask — statystyka opcji', { timeout: SLOW_TEST_MS }, () => {
   it('pozycja poprawnej odpowiedzi jest równomierna (χ², 4 opcje)', () => {
     const counts = [0, 0, 0, 0];
     let n = 0;
