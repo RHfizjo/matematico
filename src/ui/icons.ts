@@ -13,7 +13,7 @@ const SVG: Record<string, string> = {
   shield: `<path d="M32 5l23 8v17c0 15-10 25-23 30C19 55 9 45 9 30V13Z" fill="#58c4ff" ${S}/><path d="M32 12v41" stroke="#fff" stroke-opacity=".55" stroke-width="5" stroke-linecap="round"/>`,
   star: `<polygon points="${STAR_PTS}" fill="#ffd23f" ${S}/><path d="M24 24l5-1" stroke="#fff" stroke-opacity=".85" stroke-width="4" stroke-linecap="round"/>`,
   starEmpty: `<polygon points="${STAR_PTS}" fill="#fff" fill-opacity=".45" stroke="${INK}" stroke-opacity=".45" stroke-width="4" stroke-dasharray="6 5" stroke-linejoin="round"/>`,
-  pause: `<rect x="14" y="10" width="13" height="44" rx="4" fill="#fff" ${S}/><rect x="37" y="10" width="13" height="44" rx="4" fill="#fff" ${S}/>`,
+  pause: `<rect x="13" y="9" width="14" height="46" rx="5" fill="${INK}"/><rect x="37" y="9" width="14" height="46" rx="5" fill="${INK}"/>`,
   lock: `<path d="M21 29v-8a11 11 0 0 1 22 0v8" fill="none" ${S}/><rect x="12" y="28" width="40" height="30" rx="7" fill="#ffd23f" ${S}/><circle cx="32" cy="41" r="4" fill="${INK}"/><path d="M32 44v6" ${S}/>`,
   home: `<path d="M7 31L32 9l25 22" fill="none" ${S}/><path d="M13 27v29h38V27" fill="#ffb86b" ${S}/><rect x="26" y="37" width="12" height="19" rx="3" fill="#8a5a3c" ${S}/>`,
   sparkles: `<path d="M26 8c2 10 6 14 16 16c-10 2-14 6-16 16c-2-10-6-14-16-16c10-2 14-6 16-16Z" fill="#b9a2ff" ${S}/><path d="M46 34c1.5 7 4 9.5 11 11c-7 1.5-9.5 4-11 11c-1.5-7-4-9.5-11-11c7-1.5 9.5-4 11-11Z" fill="#ffd23f" ${S}/>`,

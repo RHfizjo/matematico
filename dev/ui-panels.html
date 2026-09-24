@@ -25,6 +25,9 @@
       #dev-bar select { font: 800 14px Nunito, system-ui, sans-serif; }
       #dev-log { max-width: 520px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #4a5775; }
       body.shot #dev-bar { display: none; }
+      /* Headless Chromium w trybie zrzutów nie produkuje klatek na bieżąco (animacje CSS stoją w „pending”),
+         więc w trybie ?shot pokazujemy stany końcowe animacji CSS. */
+      body.shot *, body.shot *::before, body.shot *::after { animation: none !important; transition: none !important; }
     </style>
   </head>
   <body>

@@ -21,13 +21,20 @@ interface Slot {
 }
 
 const CARD_W = 170;
-const SIDE_LEFT = 350;
-const SIDE_RIGHT = 300;
+/** Miejsce zarezerwowane po bokach ręki: serce + tarcza (lewo), odrzucone + „Koniec tury” (prawo). */
+export const SIDE_LEFT = 384;
+export const SIDE_RIGHT = 344;
+
+/** Środek ręki (px od lewej) — pośrodku wolnego miejsca między kolumnami. */
+export function handCenter(viewportW: number): number {
+  const avail = viewportW - SIDE_LEFT - SIDE_RIGHT;
+  return avail > CARD_W ? SIDE_LEFT + avail / 2 : viewportW / 2;
+}
 
 /** Pozycje kart w wachlarzu (czysta funkcja — testowana). x względem środka ręki, y w dół, r w stopniach. */
 export function fanLayout(n: number, viewportW: number): { x: number; y: number; r: number }[] {
   if (n <= 0) return [];
-  const avail = Math.max(CARD_W, viewportW - 2 * Math.max(SIDE_LEFT, SIDE_RIGHT));
+  const avail = Math.max(CARD_W, viewportW - SIDE_LEFT - SIDE_RIGHT);
   const spacing = n === 1 ? 0 : clamp((avail - CARD_W) / (n - 1), 92, 178);
   const out: { x: number; y: number; r: number }[] = [];
   for (let i = 0; i < n; i++) {
@@ -140,6 +147,7 @@ export function createCardTurn(ctx: UiContext, hud: HudApi) {
 
   function layout(): void {
     const pos = fanLayout(order.length, window.innerWidth);
+    root.style.setProperty('--hand-cx', `${handCenter(window.innerWidth)}px`);
     order.forEach((uid, i) => {
       const s = slots.get(uid);
       const p = pos[i];

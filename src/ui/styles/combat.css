@@ -62,7 +62,7 @@
 
 /* Ręka kart */
 .ct-hand {
-  position: absolute; left: 50%; bottom: calc(var(--gutter) - 4px); width: 0; height: 250px; pointer-events: none;
+  position: absolute; left: var(--hand-cx, 50%); bottom: calc(var(--gutter) + 6px); width: 0; height: 250px; pointer-events: none;
   transition: transform 380ms cubic-bezier(0.3, 0.9, 0.3, 1);
 }
 .ct-slot {
@@ -89,18 +89,19 @@
 
 /* Dymek z podpowiedzią dla dziecka */
 .ct-tip {
-  position: absolute; left: 50%; bottom: 312px; transform: translateX(-50%);
+  position: absolute; left: 50%; top: 236px; transform: translateX(-50%);
   max-width: min(640px, calc(100vw - 2 * var(--gutter))); width: max-content;
   display: flex; align-items: center; gap: 12px; padding: 12px 22px 12px 14px;
   background: #fff; border: 3px solid var(--ink); border-radius: 22px; box-shadow: var(--shadow);
   font: 800 23px/1.25 var(--font); pointer-events: none !important;
 }
 .ct-tip::after {
-  content: ''; position: absolute; left: 50%; bottom: -11px; width: 18px; height: 18px; margin-left: -9px;
-  background: #fff; border-right: 3px solid var(--ink); border-bottom: 3px solid var(--ink); transform: rotate(45deg);
+  content: ''; position: absolute; left: 50%; top: -11px; width: 18px; height: 18px; margin-left: -9px;
+  background: #fff; border-left: 3px solid var(--ink); border-top: 3px solid var(--ink); transform: rotate(45deg);
 }
 .ct-tip .icon { width: 42px; height: 42px; animation: wiggle 2.4s ease-in-out infinite; }
-.ct-tip.is-hidden, .ct.is-hidden .ct-tip { opacity: 0; transform: translate(-50%, 16px); }
+.ct-tip.is-hidden, .ct.is-hidden .ct-tip { opacity: 0; transform: translate(-50%, -16px); }
+.ui-has-vines .ct-tip { top: 272px; }
 
 .ct-msg {
   position: absolute; transform: translate(-50%, -100%); padding: 10px 20px; white-space: nowrap;

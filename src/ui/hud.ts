@@ -108,6 +108,7 @@ export function createHud(ctx: UiContext): HudApi {
       enemy.classList.toggle('is-hidden', !e);
       uiRoot.classList.toggle('ui-has-enemy', api.enemyVisible);
       if (!e) {
+        uiRoot.classList.remove('ui-has-vines');
         lastCzar = null;
         return;
       }
@@ -128,6 +129,7 @@ export function createHud(ctx: UiContext): HudApi {
       }
       // Pnącza
       const vines = e.vines ?? 0;
+      uiRoot.classList.toggle('ui-has-vines', vines > 0);
       eVines.textContent = '';
       eVines.classList.toggle('is-hidden', vines <= 0);
       if (vines > 0) {
