@@ -29,7 +29,7 @@ import { pickQualityFromBenchmark, QUALITY_PRESETS, shouldRenderFrame } from './
 import { buildScene, type SceneBuild } from './scenes';
 import { Atmosphere } from './world/atmosphere';
 import { Ground } from './world/ground';
-import { applyTreeFade, buildSceneMeshes, clearTreeCache, type SceneMeshes } from './world/sceneMeshes';
+import { applyTreeFade, buildSceneMeshes, clearTreeCache, pruneTreeCache, type SceneMeshes } from './world/sceneMeshes';
 import { worldUniforms } from './voxel/materials';
 import { damp } from './util/rng';
 import { segmentHitsVoxels } from './world/occlusion';
@@ -55,6 +55,10 @@ export interface RenderDebug {
 }
 
 const HERO_SPEED = 5;
+/** Wysokości (nad stopami bohatera) punktów testu zasłaniania przez drzewa. */
+const FADE_PROBE_HEIGHTS = [0.5, 1.6] as const;
+/** Czas przejścia przyciemnienia tła (s). */
+const DIM_TIME = 0.32;
 
 export function createRender(opts: CreateRenderOptions): RenderApi & { readonly debug: RenderDebug } {
   const { container, models, fx } = opts;
@@ -94,10 +98,18 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
   let lastDrawCalls = 0;
   let lastTriangles = 0;
   let lastDrop = -1e9;
+  /** Zmiana skali dynamicznej rozdzielczości czeka na początek następnej klatki (zmiana rozmiaru płótna
+   *  czyści bufor — po narysowaniu klatki dałaby jedną pustą klatkę na ekranie). */
+  let scaleDirty = false;
+  let dim = 0;
+  let dimTarget = 0;
+  let cssDim = '';
   let clock = 0;
   let loadToken = 0;
-  let bench: { samples: number[]; until: number; resolve: (q: QualityLevel) => void; prev: QualityLevel } | null = null;
+  let disposed = false;
+  let bench: { samples: number[]; until: number; resolvers: ((q: QualityLevel) => void)[] } | null = null;
   const tmpV = new THREE.Vector3();
+  const tmpProj = new THREE.Vector3();
   const focus = new THREE.Vector3();
   const ray = new THREE.Ray();
   const segA = new THREE.Vector3();
@@ -114,9 +126,15 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
     },
   };
 
+  /** Ponowne narysowanie bieżącej klatki (po zmianie rozmiaru płótna, która czyści bufor). */
+  const redraw = (): void => {
+    if (running && meshes) engine.render(0);
+  };
+
   // ── Rozmiar.
   const resize = (): void => {
     engine.resize(container.clientWidth || window.innerWidth, container.clientHeight || window.innerHeight);
+    redraw();
   };
   resize();
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null;
@@ -188,7 +206,7 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
         const cx = (t.box.min.x + t.box.max.x) / 2;
         const cz = (t.box.min.z + t.box.max.z) / 2;
         if (Math.abs(cx - hp.x) < 22 && Math.abs(cz - hp.z) < 22) {
-          for (const hy of [0.5, 1.6]) {
+          for (const hy of FADE_PROBE_HEIGHTS) {
             tmpV.set(hp.x, hp.y + hy, hp.z);
             const segLen = from.distanceTo(tmpV);
             ray.origin.copy(from);
@@ -224,9 +242,31 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
     }
   };
 
+  /** Przyciemnienie tła: w kompozytorze (średni/wysoki) efekt korekcji barw, na niskim filtr CSS. */
+  const updateDim = (dtReal: number): void => {
+    if (dim !== dimTarget) {
+      const step = dtReal / DIM_TIME;
+      dim = dimTarget > dim ? Math.min(dimTarget, dim + step) : Math.max(dimTarget, dim - step);
+    }
+    const k = dim * dim * (3 - 2 * dim);
+    let css = '';
+    if (engine.hasComposer) engine.setDim(k);
+    else if (dimTarget > 0) css = 'brightness(0.55) saturate(0.8)';
+    if (css !== cssDim) {
+      cssDim = css;
+      const c = engine.canvas;
+      c.style.transition = 'filter 320ms ease';
+      c.style.filter = css;
+    }
+  };
+
   // ── Klatka.
   const tick = (dtReal: number, interval: number): void => {
     const t0 = performance.now();
+    if (scaleDirty) {
+      scaleDirty = false;
+      engine.applyScale();
+    }
     if (tsT < 1) {
       tsT = Math.min(1, tsT + dtReal / tsDur);
       const e = tsT * tsT * (3 - 2 * tsT);
@@ -250,12 +290,10 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
     updateTreeFade(dtReal);
     updateLights();
     {
-      const ff = atmosphere.fireflies;
       // Kolor HDR (bloom).
-      fireflyColor.copy(ff.color).multiplyScalar(2.6);
-      fireflies.update(dt, cam.target, ff.strength, engine.renderer.getPixelRatio(), (x, z) => (ground ? ground.heightAt(x, z) : NaN), fireflyColor);
+      fireflyColor.copy(atmosphere.fireflyColor).multiplyScalar(2.6);
+      fireflies.update(dt, cam.target, atmosphere.fireflyStrength, engine.renderer.getPixelRatio(), fireflyHeight, fireflyColor);
     }
-    for (const s of meshes?.shafts ?? []) s.visible = true;
     for (const cb of callbacks) {
       try {
         cb(dtReal);
@@ -263,10 +301,10 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
         console.error('[render] onFrame callback', err);
       }
     }
+    updateDim(dtReal);
     engine.setBloomStrength(atmosphere.bloomStrength);
     engine.setSaturation(atmosphere.saturation);
-    const gr = atmosphere.grade;
-    engine.setGrade(gr.mul, gr.lift);
+    engine.setGrade(atmosphere.gradeMul, atmosphere.gradeLift);
     const info = engine.renderer.info;
     info.reset();
     engine.render(dtReal);
@@ -281,9 +319,9 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
       bench.samples.push(performance.now() - t0);
       if (performance.now() >= bench.until) finishBench();
     }
-    // Statystyki i dynamiczna rozdzielczość.
-    fps += (1000 / Math.max(1, interval) - fps) * 0.1;
+    // Statystyki i dynamiczna rozdzielczość (fps z wygładzonego czasu klatki — spójne z frameMs).
     frameMs += (interval - frameMs) * 0.1;
+    fps = 1000 / Math.max(1, frameMs);
     if (!bench) {
       const now = performance.now();
       const slow = interval > 18;
@@ -291,7 +329,7 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
       const sampleMs = slow ? interval : work < 7 && interval < 17.6 && now - lastDrop > 15000 ? 10 : 15;
       if (engine.dyn.sample(sampleMs, dtReal)) {
         if (slow) lastDrop = now;
-        engine.applyScale();
+        scaleDirty = true;
       }
     }
   };
@@ -315,7 +353,7 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
     const q = pickQualityFromBenchmark(med);
     engine.setQuality(q);
     applyQualityToWorld();
-    b.resolve(q);
+    for (const r of b.resolvers) r(q);
   }
 
   // ── Scena.
@@ -344,6 +382,8 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
     build = b;
     meshes = m;
     scene.add(m.group);
+    // Geometrie drzew z poprzednich scen (inne ziarna) nie są już potrzebne.
+    pruneTreeCache(m.treeKeys);
     const g = new Ground(b.world, b.bounds);
     for (const [x, z] of b.blocked) g.block(x, z);
     for (const c of m.treeColliders) g.colliders.push({ ...c });
@@ -393,9 +433,10 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
   }
 
   const toVec3 = (p: Vec3): THREE.Vector3 => new THREE.Vector3(p.x, p.y, p.z);
+  const fireflyHeight = (x: number, z: number): number => (ground ? ground.heightAt(x, z) : NaN);
 
   function worldToScreen(pos: Vec3): ScreenPos {
-    const v = toVec3(pos).project(cam.camera);
+    const v = tmpProj.set(pos.x, pos.y, pos.z).project(cam.camera);
     const { w, h } = engine.cssSize;
     const visible = v.z > -1 && v.z < 1 && Math.abs(v.x) <= 1 && Math.abs(v.y) <= 1;
     return { x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h, visible };
@@ -420,23 +461,33 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
     },
 
     setQuality(q) {
+      scaleDirty = false;
       engine.setQuality(q);
       applyQualityToWorld();
+      redraw();
     },
     getQuality() {
       return engine.preset.level;
     },
     autoDetectQuality() {
       return new Promise<QualityLevel>((resolve) => {
-        const prev = engine.preset.level;
+        if (disposed) {
+          resolve(engine.preset.level);
+          return;
+        }
+        // Test już trwa — dołącz do jego wyniku.
+        if (bench) {
+          bench.resolvers.push(resolve);
+          return;
+        }
         engine.setQuality('high');
         applyQualityToWorld();
-        bench = { samples: [], until: performance.now() + 3000, resolve, prev };
+        bench = { samples: [], until: performance.now() + 3000, resolvers: [resolve] };
         if (!running) {
-          // Pętla stoi — własna krótka pętla testu.
+          // Pętla stoi — własna krótka pętla testu (kończy się, gdy ruszy główna pętla).
           let last = performance.now();
           const step = (now: number): void => {
-            if (!bench) return;
+            if (!bench || running || disposed) return;
             tick(Math.min(0.1, (now - last) / 1000), now - last);
             last = now;
             requestAnimationFrame(step);
@@ -518,9 +569,11 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
       if (rampMs <= 0) timeScale = tsTo;
     },
     setFocusDim(on) {
-      const c = engine.canvas;
-      c.style.transition = 'filter 320ms ease';
-      c.style.filter = on ? 'brightness(0.55) saturate(0.8)' : '';
+      dimTarget = on ? 1 : 0;
+      if (!running) {
+        dim = dimTarget;
+        updateDim(0);
+      }
     },
 
     burst(pos: Vec3, kind: BurstKind) {
@@ -572,7 +625,14 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
     },
 
     dispose() {
+      if (disposed) return;
+      disposed = true;
       api.stop();
+      if (bench) {
+        const b = bench;
+        bench = null;
+        for (const r of b.resolvers) r(engine.preset.level);
+      }
       ro?.disconnect();
       if (!ro) window.removeEventListener('resize', resize);
       clearScene();

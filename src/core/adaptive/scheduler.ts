@@ -37,6 +37,9 @@ import { isKnownCategory } from './priors';
 export const DEFAULT_QUOTAS: Readonly<Record<Bucket, number>> = { progress: 0.4, weak: 0.25, mastered: 0.25, new: 0.1 };
 /** Przesunięcie regulatora (15 pp). */
 export const REGULATOR_SHIFT = 0.15;
+/** Progi skuteczności regulatora: poniżej LOW → więcej OPANOWANYCH, powyżej HIGH → więcej SŁABYCH i NOWYCH. */
+export const REGULATOR_LOW = 0.6;
+export const REGULATOR_HIGH = 0.9;
 /** Regulator działa od tylu wyników w oknie. */
 export const REGULATOR_MIN_WINDOW = 4;
 /** Maks. 1 NOWE na tyle zadań. */
@@ -62,13 +65,21 @@ export const GENTLE_DEFAULT_MS_MULDIV = 10000;
 
 const BUCKETS: readonly Bucket[] = ['progress', 'weak', 'mastered', 'new'];
 
-/** Kolejność zastępcza, gdy wymuszony koszyk jest pusty. */
-const FALLBACK_ORDER: Readonly<Record<Bucket, readonly Bucket[]>> = {
-  mastered: ['mastered', 'progress', 'weak', 'new'],
+/**
+ * Kolejność zastępcza, gdy wymuszony koszyk jest pusty. OPANOWANE (także bezpiecznik frustracji):
+ * NOWE przed SŁABYMI — po serii błędów świeży fakt (m z priorytetu) jest łatwiejszy niż znany słaby.
+ */
+export const FALLBACK_ORDER: Readonly<Record<Bucket, readonly Bucket[]>> = {
+  mastered: ['mastered', 'progress', 'new', 'weak'],
   progress: ['progress', 'mastered', 'weak', 'new'],
   weak: ['weak', 'progress', 'mastered', 'new'],
   new: ['new', 'progress', 'weak', 'mastered'],
 };
+/**
+ * Bezpiecznik, gdy NOWE są teraz zablokowane limitem 1 NOWE na 5 zadań (GDD 6.4): SŁABE przed NOWYMI.
+ * Inaczej przy serii błędów bezpiecznik podawałby NOWE w każdym zadaniu.
+ */
+export const GUARD_ORDER_NEW_CAPPED: readonly Bucket[] = ['mastered', 'progress', 'weak', 'new'];
 
 // ───────────── Regulator ─────────────
 
@@ -99,9 +110,15 @@ export function regulatedQuotas(model: SkillModel): Record<Bucket, number> {
   const q: Record<Bucket, number> = { ...DEFAULT_QUOTAS };
   const acc = windowAccuracy(model);
   if (acc === null) return q;
-  if (acc < 0.6) shiftQuota(q, ['weak', 'new'], ['mastered'], REGULATOR_SHIFT);
-  else if (acc > 0.9) shiftQuota(q, ['mastered', 'progress'], ['weak', 'new'], REGULATOR_SHIFT);
+  if (acc < REGULATOR_LOW) shiftQuota(q, ['weak', 'new'], ['mastered'], REGULATOR_SHIFT);
+  else if (acc > REGULATOR_HIGH) shiftQuota(q, ['mastered', 'progress'], ['weak', 'new'], REGULATOR_SHIFT);
   return q;
+}
+
+/** Czy regulator ogranicza SŁABE i NOWE (skuteczność w oknie < 60%). */
+function regulatorProtects(model: SkillModel): boolean {
+  const acc = windowAccuracy(model);
+  return acc !== null && acc < REGULATOR_LOW;
 }
 
 // ───────────── Kandydaci ─────────────
@@ -237,15 +254,46 @@ function pickWeighted(list: readonly Candidate[], rng: Rng, easy: boolean): Cand
   return list[rng.weightedIndex(weights)] as Candidate;
 }
 
+/** Rozruch: mniej niż STARTUP_MIN_SEEN znanych (nie-nowych) kandydatów na liście. */
+function isStartup(list: readonly Candidate[]): boolean {
+  return list.filter((c) => c.bucket !== 'new').length < STARTUP_MIN_SEEN;
+}
+
+/** Czy NOWE jest teraz dozwolone (rozruch albo brak NOWEGO w ostatnich 4 zadaniach). */
+function newAllowed(model: SkillModel, list: readonly Candidate[]): boolean {
+  return isStartup(list) || !recentlyNew(model);
+}
+
 function sampleBucket(model: SkillModel, list: readonly Candidate[], rng: Rng): Bucket {
   const q = regulatedQuotas(model);
   const present = BUCKETS.filter((b) => list.some((c) => c.bucket === b));
-  const seen = list.filter((c) => c.bucket !== 'new').length;
-  if (seen < STARTUP_MIN_SEEN) q.new = Math.max(q.new, STARTUP_NEW_QUOTA);
+  if (isStartup(list)) q.new = Math.max(q.new, STARTUP_NEW_QUOTA);
   else if (recentlyNew(model)) q.new = 0;
   let weights = present.map((b) => q[b]);
   if (!weights.some((w) => w > 0)) weights = present.map(() => 1);
   return present[rng.weightedIndex(weights)] as Bucket;
+}
+
+/**
+ * Bliźniaki przemienne (7 × 8 / 8 × 7): po wyborze faktu bierze orientację z MNIEJSZĄ liczbą prób
+ * (remis → 50/50), o ile partner jest na tej samej liście kandydatów (w puli i po tych samych filtrach).
+ * Inaczej częściej ćwiczona orientacja „zagłodziłaby” drugą.
+ * Zamiana tylko w obrębie koszyka: inny koszyk = inna wiedza (słaby 7 × 8 nie oddaje ćwiczeń opanowanemu
+ * 8 × 7, a opanowany nie zamienia się na słaby — udziały koszyków i regulator bez zmian). Jedyny wyjątek:
+ * nieoglądany bliźniak (NOWE, znany tylko z aktualizacji partnera) wchodzi za znany fakt, gdy `allowNew`
+ * (limit 1 NOWE na 5 zadań i regulator nie ogranicza NOWYCH).
+ */
+function orientTwin(model: SkillModel, c: Candidate, list: readonly Candidate[], rng: Rng, allowNew: boolean): Candidate {
+  if (c.factId === null) return c;
+  const p = safePartner(c.factId);
+  if (p === null) return c;
+  const twin = list.find((x) => x.factId === p);
+  if (twin === undefined) return c;
+  if (twin.bucket !== c.bucket && !(allowNew && twin.bucket === 'new')) return c;
+  const nc = model.facts[c.factId]?.n ?? 0;
+  const nt = model.facts[p]?.n ?? 0;
+  if (nt !== nc) return nt < nc ? twin : c;
+  return rng.chance(0.5) ? twin : c;
 }
 
 function chooseCategory(c: Candidate, blocked: Set<CategoryId>, rng: Rng, prefer?: CategoryId): CategoryId {
@@ -267,11 +315,14 @@ function fallbackTask(c: CategoryId, req: TaskRequest, rng: Rng, id: string): Ta
 /**
  * Wybiera następne zadanie (GDD 6.4). Zwiększa model.taskCounter (id = "t" + licznik).
  * Kolejność: (1) req.forceBucket albo bezpiecznik frustracji (≥ 2 błędy z rzędu → OPANOWANE,
- * najłatwiejsze; puste → W TOKU → SŁABE → NOWE; bezpiecznik nie łamie zakazu powtórek, póki są inni
- * kandydaci); (2) zaległa powtórka po błędzie z tej sesji, której fakt jest w puli i nie był
+ * najłatwiejsze; puste → W TOKU → NOWE → SŁABE, a gdy limit 1 NOWE na 5 zadań blokuje NOWE — SŁABE przed
+ * NOWYMI; bezpiecznik nie łamie zakazu powtórek, póki są inni kandydaci); (2) zaległa powtórka po błędzie z tej sesji, której fakt jest w puli i nie był
  * w poprzednim zadaniu (fakt pokazany wcześniej = powtórka podana); (3) losowanie koszyka wg udziałów
  * po regulatorze (max 1 NOWE na 5 zadań), potem losowanie ważone 1.0·(1 − m) + 0.5·zaległość + 0.1.
  * Kandydaci bez faktów z 3 ostatnich zadań i bez kategorii 2× pod rząd (w razie braku — łagodzenie).
+ * W (1) i (3) fakt z partnerem przemiennym z tego samego koszyka: orientacja z mniejszą liczbą prób
+ * (remis → 50/50); w (3) także nieoglądany bliźniak, gdy NOWE są dozwolone (zob. orientTwin).
+ * Powtórka po błędzie zawsze pokazuje ten sam fakt.
  * Nie zapisuje próby (wywołujący woła recordAttempt). Rzuca wyjątek tylko dla pustej puli.
  */
 export function pickTask(model: SkillModel, req: TaskRequest, rng: Rng, now: number): Task {
@@ -335,12 +386,14 @@ export function pickTask(model: SkillModel, req: TaskRequest, rng: Rng, now: num
     // niż przeplatanie (raczej opanowany fakt bez przeplatania), ale nie niż zakaz powtórek z 3 ostatnich
     // zadań (poziomy 0–1) — inaczej krążyłby po świeżo pomylonych faktach, choć są inne.
     const groups = easy ? [levels.slice(0, 2), levels.slice(2)] : [levels];
+    // Bezpiecznik: NOWE przed SŁABYMI tylko w limicie 1 NOWE na 5 zadań (inaczej seria błędów = seria NOWYCH).
+    const order = easy && !newAllowed(model, cands) ? GUARD_ORDER_NEW_CAPPED : FALLBACK_ORDER[forced];
     for (const group of groups) {
-      for (const b of FALLBACK_ORDER[forced]) {
+      for (const b of order) {
         for (const level of group) {
           const list = level.filter((c) => c.bucket === b);
           if (list.length > 0) {
-            const c = pickWeighted(list, rng, easy);
+            const c = orientTwin(model, pickWeighted(list, rng, easy), level, rng, false);
             return make(c, chooseCategory(c, blocked, rng));
           }
         }
@@ -350,11 +403,12 @@ export function pickTask(model: SkillModel, req: TaskRequest, rng: Rng, now: num
   for (const level of levels) {
     if (level.length === 0) continue;
     const bucket = sampleBucket(model, level, rng);
-    const c = pickWeighted(
+    const picked = pickWeighted(
       level.filter((x) => x.bucket === bucket),
       rng,
       false,
     );
+    const c = orientTwin(model, picked, level, rng, newAllowed(model, level) && !regulatorProtects(model));
     return make(c, chooseCategory(c, blocked, rng));
   }
   // Nieosiągalne (ostatni poziom = wszyscy kandydaci, niepusty), ale bez wyjątku.

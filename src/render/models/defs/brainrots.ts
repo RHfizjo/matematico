@@ -23,7 +23,7 @@ function buildSlimak(b: ModelBuilder, v: Variant): void {
     b.box(pivot, size, MZ(c), color, o.rot ? { ...o, rot: [-o.rot[0], -o.rot[1], o.rot[2]] } : o);
   };
   const P = glam
-    ? { body: '#c9b3ff', bodyDark: '#a98ff0', shoe: '#ff9fd2', shoeDark: '#ff7fc0', sole: '#fff1f8', accent: GOLD, tongue: '#ffe0f0', inner: '#b0487e' }
+    ? { body: '#c9b3ff', bodyDark: '#a98ff0', shoe: '#ffc8e6', shoeDark: '#ffa6d6', sole: '#fff1f8', accent: GOLD, tongue: '#ffe0f0', inner: '#b0487e' }
     : { body: '#b5e61d', bodyDark: '#86b80f', shoe: '#ff3d7f', shoeDark: '#d61f5f', sole: '#f4f4ee', accent: '#ffe14d', tongue: '#9b5de5', inner: '#4a0f2a' };
 
   b.pivot('body', 'all', [0, 0, 0]);
@@ -83,8 +83,9 @@ function buildSlimak(b: ModelBuilder, v: Variant): void {
   if (glam) {
     // wielka kokarda zamiast sznurówek
     b.pivot('bow', 'shell', MZ([0, 0.8, -0.24]));
-    const BOW = '#ff6fb5';
-    sh('bow', [0.15, 0.15, 0.15], [0, 0.82, -0.24], '#ff4fa3');
+    // kokarda wyraźnie ciemniejsza niż jasnoróżowy trampek (wcześniej zlewała się z nim)
+    const BOW = '#ff3f9e';
+    sh('bow', [0.15, 0.15, 0.15], [0, 0.82, -0.24], '#e0207a');
     sh('bow', [0.3, 0.24, 0.1], [0.2, 0.88, -0.24], BOW, { rot: [0, 0, 0.35] });
     sh('bow', [0.3, 0.24, 0.1], [-0.2, 0.88, -0.24], BOW, { rot: [0, 0, -0.35] });
     sh('bow', [0.08, 0.26, 0.06], [0.1, 0.7, -0.18], BOW, { rot: [0.3, 0, -0.3] });
@@ -308,7 +309,8 @@ function buildGrzyb(b: ModelBuilder, v: Variant): void {
   const glam = v === 'glam';
   const P = glam
     ? { wood: '#ffc93d', woodDark: '#f0ad1c', foot: '#fff0b0', stem: '#ffc8dc', stemDark: '#ffadc9', flor: ['#fff0f7', '#f1dbff', '#ffd6ea'], leaf: '#9fe8c4', leafDark: '#7fd8ad' }
-    : { wood: '#c77d3a', woodDark: '#9c5a24', foot: '#6e3d17', stem: '#eef3b8', stemDark: '#cfd78c', flor: ['#f4f1dc', '#e6e2bf', '#dfe8b2'], leaf: '#7ac943', leafDark: '#5ea832' };
+    : // brainrot: kwaśny, limonkowy trzon, jaskrawe krzesło, kremowy kalafior (nasycone, lekko „kwaśne” — GDD 16.1)
+      { wood: '#e8772a', woodDark: '#b8521a', foot: '#6e3d17', stem: '#dcf05a', stemDark: '#b3cc34', flor: ['#fbf7dc', '#f1ecc4', '#eef4c0'], leaf: '#62d13a', leafDark: '#44ad25' };
 
   // nogi od krzesła (chodzą po przekątnych)
   const legPos: [string, number, number][] = [
@@ -344,10 +346,11 @@ function buildGrzyb(b: ModelBuilder, v: Variant): void {
     b.box('body', [0.14, 0.035, 0.02], [0, 0.9, 0.235], '#b0487e', { shade: 1 });
     b.pair('body', 'body', [0.035, 0.035, 0.02], [0.08, 0.915, 0.235], '#b0487e', { shade: 1 });
     cheeks(b, 'body', { y: 0.97, z: 0.235, dx: 0.18, w: 0.08 });
-    // naszyjnik z pereł
+    // naszyjnik z pereł — nisko na trzonie (wcześniej zasłaniał oczy i rzęsy)
     for (let i = 0; i < 9; i++) {
-      const a = (i / 9) * Math.PI - Math.PI;
-      b.box('body', [0.06, 0.06, 0.06], [Math.cos(a) * 0.26, 1.2 + Math.sin(a) * 0.05, 0.2 + Math.sin(-a) * 0.05], WHITE, { glow: 1.4 });
+      const a = (i / 8) * Math.PI; // 0..π: od prawego boku przez przód do lewego
+      const f = Math.sin(a); // 1 = środek przodu
+      b.box('body', [0.06, 0.06, 0.06], [Math.cos(a) * 0.25, 0.83 - 0.05 * f, 0.13 + 0.12 * f], WHITE, { glow: 1.4 });
     }
   } else {
     b.box('eyes', [0.13, 0.16, 0.03], [0.12, 1.08, 0.235], INK, { shade: 1 });
@@ -418,13 +421,20 @@ function grzybMotion(v: Variant): MotionFn[] {
     w.rot('armL', 0, 0, 0.15 * Math.sin(time * 2.5));
     w.rot('armR', 0, 0, -0.15 * Math.sin(time * 2.5 + 1));
     if (c.anim === 'windup' && !glam) {
-      // świecący kalafior przed mocnym ciosem
-      fx.glowGroup('cap', '#e8ff6a', 0.55 + 0.35 * Math.sin(t * 12));
+      // Świecący kalafior przed mocnym ciosem (GDD 13.2) — musi być WYRAŹNY z kamery gry:
+      // kolor przechodzi w kwaśną żółć, pulsuje i łapie bloom; kapelusz „nadyma się”.
+      const pulse = 0.5 + 0.5 * Math.sin(t * 9);
+      const on = ramp(t, 0, 0.25);
+      fx.tintGroup('cap', 1, 1, 1 - 0.55 * on);
+      fx.glowGroup('cap', '#c8ff2e', on * (0.7 + 0.8 * pulse));
+      w.scale('cap', 1 + 0.06 * on * pulse);
       w.rot('armL', 0, 0, 1.2);
       w.rot('armR', 0, 0, -1.2);
     }
     if (c.anim === 'strongAttack' && !glam) {
-      fx.glowGroup('cap', '#e8ff6a', 0.9 * (1 - ramp(p, 0.5, 0.9)));
+      const k = 1 - ramp(p, 0.5, 0.9);
+      fx.tintGroup('cap', 1, 1, 1 - 0.55 * k);
+      fx.glowGroup('cap', '#c8ff2e', 1.4 * k);
       w.rot('cap', 0.5 * bump(p, 0.4, 0.8), 0, 0);
     }
     if (c.anim === 'attack') {
@@ -444,6 +454,10 @@ function grzybMotion(v: Variant): MotionFn[] {
 }
 
 // ───────────────────────────── Kosiarrini Chwastorrini / Kwiatorra, Królowa Łąki ─────────────────────────────
+
+/** Powiększenie głowy-kwiatu bossa i wysokość jej środka. */
+const HEAD_K = 1.35;
+const HEAD_Y = 3.72;
 
 function buildKosiarka(b: ModelBuilder, v: Variant): void {
   const glam = v === 'glam';
@@ -519,7 +533,7 @@ function buildKosiarka(b: ModelBuilder, v: Variant): void {
   b.box('stalk1', [0.44, 0.1, 0.44], [0, 1.9, 0], P.stalkDark);
   b.box('stalk2', [0.34, 0.86, 0.34], [0.04, 2.33, 0], P.stalk);
   b.box('stalk2', [0.4, 0.1, 0.4], [0.04, 2.75, 0], P.stalkDark);
-  b.box('stalk3', [0.3, 0.45, 0.3], [0.04, 2.97, 0], P.stalk);
+  b.box('stalk3', [0.3, 0.62, 0.3], [0.04, 3.055, 0], P.stalk); // szyja sięga do (powiększonej) głowy
   if (glam) {
     b.box('stalk1', [0.46, 0.06, 0.46], [0, 1.9, 0], GOLD, { glow: 1.3 });
     b.box('stalk2', [0.42, 0.06, 0.42], [0.04, 2.75, 0], GOLD, { glow: 1.3 });
@@ -560,44 +574,53 @@ function buildKosiarka(b: ModelBuilder, v: Variant): void {
     b.box(hand, [0.1, 0.14, 0.1], [px + s * 0.62, 3.2, 0.12], P.leaf, { rot: [0.3, 0, 0] });
   }
 
-  // głowa: mlecz / kwiat
-  b.pivot('head', 'stalk3', [0.04, 3.1, 0]);
-  b.pivot('eyes', 'head', [0.04, 3.56, 0.22]);
+  // głowa: mlecz / kwiat — powiększona ×HEAD_K i uniesiona (boss ma czytelną, dużą twarz z kamery z góry)
+  b.pivot('head', 'stalk3', [0.04, 3.2, 0]);
   const hc: [number, number] = [0.04, 3.5];
-  for (let k = 0; k < 12; k++) {
-    const an = (k * Math.PI) / 6;
-    b.box('head', [0.36, 0.16, 0.12], [hc[0] + Math.cos(an) * 0.52, hc[1] + Math.sin(an) * 0.52, -0.04], k % 2 ? P.petal1 : P.petal2, { rot: [0, 0, an] });
-  }
-  for (let k = 0; k < 12; k++) {
-    const an = (k * Math.PI) / 6 + Math.PI / 12;
-    b.box('head', [0.3, 0.15, 0.12], [hc[0] + Math.cos(an) * 0.42, hc[1] + Math.sin(an) * 0.42, 0.03], k % 2 ? P.petal2 : P.petal1, { rot: [0, 0, an] });
-  }
-  b.box('head', [0.62, 0.62, 0.26], [hc[0], hc[1], 0.08], P.disc, { shade: 0.85 });
+  b.transformed({ from: [hc[0], hc[1], 0], to: [hc[0], HEAD_Y, 0], scale: HEAD_K }, () => {
+    b.pivot('eyes', 'head', [0.04, 3.56, 0.22]);
+    for (let k = 0; k < 12; k++) {
+      const an = (k * Math.PI) / 6;
+      b.box('head', [0.36, 0.16, 0.12], [hc[0] + Math.cos(an) * 0.52, hc[1] + Math.sin(an) * 0.52, -0.04], k % 2 ? P.petal1 : P.petal2, { rot: [0, 0, an] });
+    }
+    for (let k = 0; k < 12; k++) {
+      const an = (k * Math.PI) / 6 + Math.PI / 12;
+      b.box('head', [0.3, 0.15, 0.12], [hc[0] + Math.cos(an) * 0.42, hc[1] + Math.sin(an) * 0.42, 0.03], k % 2 ? P.petal2 : P.petal1, { rot: [0, 0, an] });
+    }
+    b.box('head', [0.62, 0.62, 0.26], [hc[0], hc[1], 0.08], P.disc, { shade: 0.85 });
+    if (glam) {
+      eyePair(b, 'eyes', { x: hc[0], y: 3.56, z: 0.215, dx: 0.13, w: 0.1, h: 0.13 });
+      lashes(b, 'eyes', { x: hc[0], y: 3.64, z: 0.215, dx: 0.13, w: 0.1 });
+      b.box('head', [0.16, 0.035, 0.02], [hc[0], 3.38, 0.215], '#b0487e', { shade: 1 });
+      b.pair('head', 'head', [0.035, 0.035, 0.02], [0.13, 3.395, 0.215], '#b0487e', { shade: 1 });
+      cheeks(b, 'head', { y: 3.45, z: 0.215, dx: 0.21, w: 0.09 });
+      // korona
+      b.pivot('crown', 'head', [0.04, 3.95, 0]);
+      b.box('crown', [0.56, 0.1, 0.3], [hc[0], 3.97, 0.02], GOLD, { glow: 1.6 });
+      for (const x of [-0.21, 0, 0.21]) b.box('crown', [0.1, x === 0 ? 0.24 : 0.17, 0.1], [hc[0] + x, x === 0 ? 4.12 : 4.08, 0.02], GOLD, { glow: 1.6 });
+      b.box('crown', [0.1, 0.1, 0.1], [hc[0], 4.26, 0.02], '#ff7fd0', { glow: 2.6, rot: [0, 0, 0.785] });
+      b.pair('crown', 'crown', [0.07, 0.07, 0.07], [0.25, 4.19, 0.02], '#8fe7ff', { glow: 2.4, rot: [0, 0, 0.785] });
+    } else {
+      b.box('eyes', [0.12, 0.13, 0.03], [hc[0] + 0.14, 3.56, 0.215], INK, { shade: 1 });
+      b.box('eyes', [0.12, 0.13, 0.03], [hc[0] - 0.14, 3.56, 0.215], INK, { shade: 1 });
+      b.box('eyes', [0.04, 0.04, 0.02], [hc[0] + 0.12, 3.59, 0.235], WHITE, { shade: 1 });
+      b.box('eyes', [0.04, 0.04, 0.02], [hc[0] - 0.16, 3.59, 0.235], WHITE, { shade: 1 });
+      b.box('head', [0.18, 0.05, 0.02], [hc[0] + 0.14, 3.67, 0.215], '#5a2a00', { rot: [0, 0, 0.4], shade: 1 });
+      b.box('head', [0.18, 0.05, 0.02], [hc[0] - 0.14, 3.67, 0.215], '#5a2a00', { rot: [0, 0, -0.4], shade: 1 });
+      b.box('head', [0.36, 0.1, 0.02], [hc[0], 3.36, 0.215], '#5a1a00', { shade: 1 });
+      // ząbki odrobinę poniżej górnej krawędzi ust (bez migotania wspólnej ściany)
+      for (const x of [-0.1, 0, 0.1]) b.box('head', [0.06, 0.05, 0.02], [hc[0] + x, 3.38, 0.222], WHITE, { shade: 1 });
+    }
+  });
   if (glam) {
-    eyePair(b, 'eyes', { x: hc[0], y: 3.56, z: 0.215, dx: 0.13, w: 0.1, h: 0.13 });
-    lashes(b, 'eyes', { x: hc[0], y: 3.64, z: 0.215, dx: 0.13, w: 0.1 });
-    b.box('head', [0.16, 0.035, 0.02], [hc[0], 3.38, 0.215], '#b0487e', { shade: 1 });
-    b.pair('head', 'head', [0.035, 0.035, 0.02], [0.13, 3.395, 0.215], '#b0487e', { shade: 1 });
-    cheeks(b, 'head', { y: 3.45, z: 0.215, dx: 0.21, w: 0.09 });
-    // korona
-    b.pivot('crown', 'head', [0.04, 3.95, 0]);
-    b.box('crown', [0.56, 0.1, 0.3], [hc[0], 3.97, 0.02], GOLD, { glow: 1.6 });
-    for (const x of [-0.21, 0, 0.21]) b.box('crown', [0.1, x === 0 ? 0.24 : 0.17, 0.1], [hc[0] + x, x === 0 ? 4.12 : 4.08, 0.02], GOLD, { glow: 1.6 });
-    b.box('crown', [0.1, 0.1, 0.1], [hc[0], 4.26, 0.02], '#ff7fd0', { glow: 2.6, rot: [0, 0, 0.785] });
-    b.pair('crown', 'crown', [0.07, 0.07, 0.07], [0.25, 4.19, 0.02], '#8fe7ff', { glow: 2.4, rot: [0, 0, 0.785] });
     b.pivot('sparkles', 'all', [0, 0, 0]);
-    sparkles(b, { count: 14, radius: 1.5, y0: 0.8, y1: 4.0, size: 0.11, seed: 31 });
-  } else {
-    b.box('eyes', [0.12, 0.13, 0.03], [hc[0] + 0.14, 3.56, 0.215], INK, { shade: 1 });
-    b.box('eyes', [0.12, 0.13, 0.03], [hc[0] - 0.14, 3.56, 0.215], INK, { shade: 1 });
-    b.box('eyes', [0.04, 0.04, 0.02], [hc[0] + 0.12, 3.59, 0.235], WHITE, { shade: 1 });
-    b.box('eyes', [0.04, 0.04, 0.02], [hc[0] - 0.16, 3.59, 0.235], WHITE, { shade: 1 });
-    b.box('head', [0.18, 0.05, 0.02], [hc[0] + 0.14, 3.67, 0.215], '#5a2a00', { rot: [0, 0, 0.4], shade: 1 });
-    b.box('head', [0.18, 0.05, 0.02], [hc[0] - 0.14, 3.67, 0.215], '#5a2a00', { rot: [0, 0, -0.4], shade: 1 });
-    b.box('head', [0.36, 0.1, 0.02], [hc[0], 3.36, 0.215], '#5a1a00', { shade: 1 });
-    for (const x of [-0.1, 0, 0.1]) b.box('head', [0.06, 0.05, 0.02], [hc[0] + x, 3.385, 0.222], WHITE, { shade: 1 });
+    sparkles(b, { count: 14, radius: 1.5, y0: 0.8, y1: 4.3, size: 0.11, seed: 31 });
   }
 }
+
+/** Stałe listy części bossa (poza funkcją ruchu — bez tworzenia tablic co klatkę). */
+const BOSS_LEAVES = [['leaf1', 1, 0], ['leaf2', -1, 1], ['leaf3', 1, 2], ['leaf4', -1, 3]] as const;
+const BOSS_WHEELS = ['wheelFL', 'wheelFR', 'wheelBL', 'wheelBR'] as const;
 
 function kosiarkaMotion(v: Variant): MotionFn[] {
   const glam = v === 'glam';
@@ -610,7 +633,7 @@ function kosiarkaMotion(v: Variant): MotionFn[] {
     w.rot('stalk2', 0.03 * Math.sin(time * 1.3 - 0.5), 0, sway(0.6) * 1.3);
     w.rot('stalk3', 0.04 * Math.sin(time * 1.5 - 1), 0, sway(1.2) * 1.5);
     w.rot('head', 0, 0.12 * Math.sin(time * 0.8), 0.08 * k * Math.sin(time * 2.1));
-    for (const [leaf, s, ph] of [['leaf1', 1, 0], ['leaf2', -1, 1], ['leaf3', 1, 2], ['leaf4', -1, 3]] as const) {
+    for (const [leaf, s, ph] of BOSS_LEAVES) {
       w.rot(leaf, 0.1 * Math.sin(time * 2.3 + ph), 0, s * 0.12 * k * Math.sin(time * 3.1 + ph));
     }
     // koła
@@ -618,7 +641,7 @@ function kosiarkaMotion(v: Variant): MotionFn[] {
     if (c.anim === 'walk') roll = t * 4;
     else if (c.anim === 'dance') roll = Math.sin(t * 2) * 1.2;
     else if (c.anim === 'attack' || c.anim === 'strongAttack') roll = 3 * ramp(p, 0.3, 0.5) - 3 * ramp(p, 0.55, 1);
-    for (const wh of ['wheelFL', 'wheelFR', 'wheelBL', 'wheelBR']) w.rot(wh, roll, 0, 0);
+    for (const wh of BOSS_WHEELS) w.rot(wh, roll, 0, 0);
     // silnik warczy
     if (!glam && c.anim !== 'sleep') w.pos('deck', 0, 0.012 * Math.sin(time * 47), 0);
 
@@ -708,6 +731,6 @@ export const brainrots: Record<string, ModelDef & { scale: number }> = {
   'glam:trzmielini': def('glam', buildTrzmiel, trzmielMotion, 1.7, 0.6, TRZMIEL_K),
   'enemy:grzybello': def('rot', buildGrzyb, grzybMotion, 1.95, 0.55, GRZYB_K),
   'glam:grzybello': def('glam', buildGrzyb, grzybMotion, 1.95, 0.55, GRZYB_K),
-  'enemy:kosiarrini': def('rot', buildKosiarka, kosiarkaMotion, 4.1, 1.3, BOSS_K),
-  'glam:kosiarrini': def('glam', buildKosiarka, kosiarkaMotion, 4.3, 1.3, BOSS_K),
+  'enemy:kosiarrini': def('rot', buildKosiarka, kosiarkaMotion, 4.5, 1.3, BOSS_K),
+  'glam:kosiarrini': def('glam', buildKosiarka, kosiarkaMotion, 4.75, 1.3, BOSS_K),
 };

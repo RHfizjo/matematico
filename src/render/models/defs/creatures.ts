@@ -127,17 +127,19 @@ export const dopelniak: ModelDef = {
     // muszla: zaokrąglony blok + spirala z kafelków po obu bokach, podzielona na 10 segmentów
     const cy = 0.64;
     const cz = -0.12;
-    b.box('shell', [0.34, 0.74, 0.56], [0, cy, cz], D_SHELL, { shade: 0.82 });
-    b.box('shell', [0.34, 0.56, 0.74], [0, cy, cz], D_SHELL, { shade: 0.82 });
-    b.box('shell', [0.26, 0.05, 0.46], [0, cy + 0.39, cz], D_SHELL_TOP, { shade: 1 });
-    b.box('shell', [0.26, 0.46, 0.05], [0, cy, cz + 0.39], D_SHELL, { shade: 0.85 });
-    b.box('shell', [0.26, 0.46, 0.05], [0, cy, cz - 0.39], D_SHELL, { shade: 0.85 });
+    // muszla szersza niż stopa — czytelna także z kamery z góry (nie tylko z boku)
+    const sw = 0.44;
+    b.box('shell', [sw, 0.74, 0.56], [0, cy, cz], D_SHELL, { shade: 0.82 });
+    b.box('shell', [sw, 0.56, 0.74], [0, cy, cz], D_SHELL, { shade: 0.82 });
+    b.box('shell', [sw - 0.08, 0.05, 0.46], [0, cy + 0.39, cz], D_SHELL_TOP, { shade: 1 });
+    b.box('shell', [sw - 0.08, 0.46, 0.05], [0, cy, cz + 0.39], D_SHELL, { shade: 0.85 });
+    b.box('shell', [sw - 0.08, 0.46, 0.05], [0, cy, cz - 0.39], D_SHELL, { shade: 0.85 });
     SPIRAL.forEach(([u, v], i) => {
       const seg = Math.floor((i * 10) / SPIRAL.length);
       const y = cy + (v - 3) * 0.1;
       const z = cz + (u - 3) * 0.1;
       for (const sx of [1, -1]) {
-        b.box('shell', [0.03, 0.088, 0.088], [sx * 0.18, y, z], D_SEG, { name: `seg${seg}`, mat: solidMaterial(D_SEG) });
+        b.box('shell', [0.03, 0.088, 0.088], [sx * (sw / 2 + 0.01), y, z], D_SEG, { name: `seg${seg}`, mat: solidMaterial(D_SEG) });
       }
     });
   },
@@ -195,6 +197,8 @@ const B_BLUE = '#6ec6ff';
 const B_BLUE_DARK = '#3d9be0';
 const B_BELLY = '#eaf7ff';
 const B_BEAK = '#ffa94d';
+/** Nazwy części obu ptaszków (stałe — bez sklejania napisów co klatkę). */
+const BIRDS = (['birdL', 'birdR'] as const).map(b => ({ body: b, wL: `${b}_wL`, wR: `${b}_wR`, eyes: `${b}_eyes` }));
 
 export const blizniak: ModelDef = {
   height: 0.75,
@@ -213,8 +217,9 @@ export const blizniak: ModelDef = {
       b.box(bird, [0.08, 0.03, 0.06], [x, 0.3, 0.21], '#e07b2a', { shade: 1 });
       b.box(bird, [0.22, 0.07, 0.14], [x, 0.36, -0.22], B_BLUE_DARK, { rot: [0.45, 0, 0] });
       eyePair(b, `${bird}_eyes`, { x, y: 0.41, z: 0.185, dx: 0.085, w: 0.065, h: 0.09 });
-      b.box(bird, [0.06, 0.035, 0.02], [x + 0.12, 0.33, 0.185], '#ff9eb5', { shade: 1 });
-      b.box(bird, [0.06, 0.035, 0.02], [x - 0.12, 0.33, 0.185], '#ff9eb5', { shade: 1 });
+      // rumieńce przed płaszczyzną brzuszka (z = 0,195), inaczej migoczą (z-fighting)
+      b.box(bird, [0.06, 0.035, 0.02], [x + 0.125, 0.335, 0.2], '#ff9eb5', { shade: 1 });
+      b.box(bird, [0.06, 0.035, 0.02], [x - 0.125, 0.335, 0.2], '#ff9eb5', { shade: 1 });
       // nóżki
       b.box(bird, [0.03, 0.14, 0.03], [x + 0.07, 0.08, 0], B_BEAK);
       b.box(bird, [0.03, 0.14, 0.03], [x - 0.07, 0.08, 0], B_BEAK);
@@ -280,14 +285,14 @@ export const blizniak: ModelDef = {
         default:
           flap = 0.1 * Math.sin(time * 3);
       }
-      for (const bird of ['birdL', 'birdR']) {
-        w.pos(bird, 0, y, 0);
-        w.rot(bird, lean, 0, 0);
-        w.rot(`${bird}_wL`, 0, 0, 0.9 * Math.max(0, flap));
-        w.rot(`${bird}_wR`, 0, 0, -0.9 * Math.max(0, flap));
-        let e = blink(time, seed);
-        if (c.anim === 'sleep') e = 0.12;
-        w.scale(`${bird}_eyes`, 1, Math.max(0.08, e), 1);
+      let e = blink(time, seed);
+      if (c.anim === 'sleep') e = 0.12;
+      for (const bird of BIRDS) {
+        w.pos(bird.body, 0, y, 0);
+        w.rot(bird.body, lean, 0, 0);
+        w.rot(bird.wL, 0, 0, 0.9 * Math.max(0, flap));
+        w.rot(bird.wR, 0, 0, -0.9 * Math.max(0, flap));
+        w.scale(bird.eyes, 1, Math.max(0.08, e), 1);
       }
     },
   ],
@@ -323,7 +328,7 @@ export const koniczynek: ModelDef = {
     b.box('armR', [0.16, 0.06, 0.08], [-0.15, 0.48, 0], K_LEAF_LIGHT, { group: 'leaf' });
     // główka: środek + 4 serduszkowe listki (na ukos)
     const cy = 0.8;
-    b.box('head', [0.26, 0.26, 0.13], [0, cy, 0.02], K_LEAF_LIGHT, { group: 'leaf', shade: 0.9 });
+    b.box('head', [0.26, 0.26, 0.12], [0, cy, 0.025], K_LEAF_LIGHT, { group: 'leaf', shade: 0.9 });
     for (let i = 0; i < 4; i++) {
       const al = Math.PI / 4 + (i * Math.PI) / 2;
       const rz = al - Math.PI / 2;

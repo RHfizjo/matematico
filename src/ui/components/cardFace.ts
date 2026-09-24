@@ -77,6 +77,12 @@ export const CARD_CSS = `
 .card-art-box { width: 100%; flex: 1 1 auto; min-height: 0; border-radius: 12px; background: radial-gradient(circle at 50% 40%, #ffffffcc, #ffffff00 70%), #bfe6ff;
   display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .card-art { width: 100%; height: 100%; object-fit: contain; }
+.card.kind-attack .card-art-box, .card.kind-strongAttack .card-art-box, .card.kind-multiHit .card-art-box {
+  background: radial-gradient(circle at 50% 40%, #ffffffcc, #ffffff00 70%), #ffd6c2; }
+.card.kind-shield .card-art-box, .card.kind-bigShield .card-art-box { background: radial-gradient(circle at 50% 40%, #ffffffcc, #ffffff00 70%), #bfe2ff; }
+.card.kind-heal .card-art-box { background: radial-gradient(circle at 50% 40%, #ffffffcc, #ffffff00 70%), #c9f3d3; }
+.card.kind-weaken .card-art-box { background: radial-gradient(circle at 50% 40%, #ffffffcc, #ffffff00 70%), #f1d6ff; }
+.card.kind-combo .card-art-box { background: radial-gradient(circle at 50% 40%, #ffffffcc, #ffffff00 70%), #ffe9a8; }
 .card-art-box.no-art::after { content: attr(data-fallback); font: 900 64px/1 var(--font); color: #ffffffcc; }
 .card-art-box.no-art .card-art { display: none; }
 .card-name { font: 900 18px/1.1 var(--font); text-align: center; margin-top: 6px; }

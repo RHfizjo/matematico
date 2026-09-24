@@ -12,7 +12,6 @@ import {
   envelope,
   hop,
   ramp,
-  squash,
   wobble,
 } from './anim';
 import type { AnimCtx, MotionFn, PoseWriter, RigFx } from './rig';
@@ -35,9 +34,11 @@ export interface BodyCfg {
   gait?: number;
 }
 
+/** Zgniecenie z zachowaniem objętości (jak squash(), ale bez tworzenia tablicy co klatkę). */
 function sq(w: PoseWriter, k: number): void {
-  const [sx, sy, sz] = squash(k);
-  w.scale('all', sx, sy, sz);
+  const sy = Math.max(0.05, 1 + k);
+  const sxz = 1 / Math.sqrt(sy);
+  w.scale('all', sxz, sy, sxz);
 }
 
 /** Ruch całego ciała dla wszystkich animacji. */

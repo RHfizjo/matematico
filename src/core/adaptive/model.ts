@@ -139,13 +139,37 @@ export function categoryPrior(model: SkillModel, c: CategoryId): number {
   return isKnownCategory(c) ? DEFAULT_PRIORS[c] : FALLBACK_PRIOR;
 }
 
-/** Priorytet faktu bez prób: priorytet PIERWSZEJ kategorii faktu (np. mul:2x7 → mul.t2). */
-export function factPrior(model: SkillModel, f: FactId): number {
-  const first = factCategories(f)[0];
-  return first === undefined ? FALLBACK_PRIOR : categoryPrior(model, first);
+/**
+ * Kategoria faktu z największą liczbą dowodów: najpierw kategorie ze stanem (CategoryState — np. priorytet
+ * z kalibracji), wśród nich największe n; remis → wcześniejsza w kolejności kategorii faktu.
+ * Bez stanów (nowy model) → PIERWSZA kategoria faktu (np. mul:2x7 → mul.t2). undefined dla faktu bez kategorii.
+ */
+export function evidenceCategory(model: SkillModel, f: FactId): CategoryId | undefined {
+  let best: CategoryId | undefined;
+  let bestScore = -Infinity;
+  for (const c of factCategories(f)) {
+    const st = model.categories[c];
+    // Stan bez prób (n = 0) wygrywa z brakiem stanu: np. priorytet ustawiony tylko przez propagację kalibracji.
+    const n = st !== undefined && Number.isFinite(st.n) ? Math.max(0, st.n) : -1;
+    if (n > bestScore) {
+      best = c;
+      bestScore = n;
+    }
+  }
+  return best;
 }
 
-/** Opanowanie faktu: m ze stanu albo priorytet, gdy fakt nie był widziany. */
+/**
+ * Priorytet faktu bez prób: priorytet kategorii z największą liczbą dowodów (evidenceCategory);
+ * dla nowego modelu — PIERWSZEJ kategorii faktu (mul:2x7 → mul.t2). Dzięki temu np. mul:8x2 po kalibracji
+ * mul.t2 (2 × 8) bierze skalibrowany priorytet, a nie domyślny.
+ */
+export function factPrior(model: SkillModel, f: FactId): number {
+  const c = evidenceCategory(model, f);
+  return c === undefined ? FALLBACK_PRIOR : categoryPrior(model, c);
+}
+
+/** Opanowanie faktu: m ze stanu albo priorytet (factPrior), gdy fakt nie był widziany. */
 export function factMastery(model: SkillModel, f: FactId): number {
   const st = model.facts[f];
   return st !== undefined ? st.m : factPrior(model, f);

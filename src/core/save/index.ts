@@ -8,6 +8,7 @@ export {
   defaultLands,
   defaultDungeon,
   defaultProgress,
+  starterCards,
 } from './defaults';
 export { SAVE_VERSION, DEFAULT_PROFILE, createNewSave } from './save';
 export { SaveError, migrateSave, serializeSave, deserializeSave } from './migrate';
@@ -25,6 +26,8 @@ export {
 export type { SessionStats } from './history';
 export { SAVE_LIMITS } from './limits';
 export {
+  CARD_IDS,
+  STARTER_CARDS,
   CREATURE_IDS,
   ENEMY_IDS,
   ITEM_IDS,
@@ -33,6 +36,7 @@ export {
   EQUIP_SLOTS,
   STARTER_CREATURE,
   STARTER_EQUIPPED,
+  isCardId,
   isCreatureId,
   isEnemyId,
   isItemId,
@@ -41,4 +45,4 @@ export {
   isFactId,
   isFactInCategory,
 } from './ids';
-export type { CreatureId, EnemyId, ItemId } from './ids';
+export type { CardId, CreatureId, EnemyId, ItemId } from './ids';

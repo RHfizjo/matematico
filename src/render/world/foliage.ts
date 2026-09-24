@@ -94,7 +94,8 @@ const GEOMETRY_BUILDERS: Record<FoliageType, () => THREE.BufferGeometry> = {
     ]),
 };
 
-const TYPE_GLOW: Partial<Record<FoliageType, number>> = { mushroom: 1.1, crystal: 0.9 };
+// Grzybki słabiej niż kryształy: przy silnej emisji jasne kapelusze przepalały się do bladych kwadratów.
+const TYPE_GLOW: Partial<Record<FoliageType, number>> = { mushroom: 0.6, crystal: 0.9 };
 
 function createFoliageMat(glow: number): THREE.MeshLambertMaterial {
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true });

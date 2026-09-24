@@ -2,8 +2,9 @@
  * Definicje kategorii (umiejętności) — GDD 5.1, 6.5. Zakresy faktów: komentarz w core/types.ts.
  *
  * Dostępność (minRange):
- * - do 10: add.within10, add.complement10, add.doubles (przy zakresie 10 tylko do 5+5), sub.within10;
- * - do 20: add.within20, add.cross10, add.three, sub.within20, sub.cross10, sub.missing;
+ * - do 10: add.within10, add.complement10, add.doubles (przy zakresie 10 tylko do 5+5), sub.within10,
+ *   add.three (przy zakresie 10 suma ≤ 10 — generator ogranicza sumę do min(20, zakres));
+ * - do 20: add.within20, add.cross10, sub.within20, sub.cross10, sub.missing;
  * - do 100: kategorie dwucyfrowe (add.2d, add.2d.carry, sub.2d, sub.2d.borrow);
  * - tabliczka mnożenia i dzielenie (mul.tK, div.byK) — przy KAŻDYM zakresie: dziecko zna tabliczkę,
  *   a zakres liczb dotyczy dodawania i odejmowania (wyniki mnożenia sięgają 100 niezależnie od zakresu).
@@ -25,7 +26,7 @@ const ADD_SUB_DEFS: CategoryDef[] = [
     factBased: true,
   },
   { id: 'add.cross10', op: 'add', label: 'Dodawanie z przekroczeniem 10', minRange: 20, factBased: true },
-  { id: 'add.three', op: 'add', label: 'Dodawanie trzech liczb', minRange: 20, factBased: false },
+  { id: 'add.three', op: 'add', label: 'Dodawanie trzech liczb', minRange: 10, factBased: false },
   {
     id: 'add.2d',
     op: 'add',

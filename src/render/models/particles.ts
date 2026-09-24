@@ -95,6 +95,8 @@ export class Particles implements ParticleSystem {
   private readonly atlas: THREE.Texture | null;
   private n = 0;
   private lastN = 0;
+  /** Następny slot do nadpisania, gdy pula jest pełna. */
+  private recycle = 0;
   private readonly rnd = mulberry(1234);
   // stan cząstek (struktura tablic)
   private readonly px = new Float32Array(POOL);
@@ -175,8 +177,11 @@ export class Particles implements ParticleSystem {
 
   private spawn(): number {
     if (this.n >= POOL) {
-      // pula pełna — nadpisujemy najstarszą (indeks 0 jest zwykle najstarszy)
-      return 0;
+      // Pula pełna — nadpisujemy kolejne sloty po kolei (pierścień), a nie ciągle ten sam:
+      // inaczej cały nowy wybuch „zjadałby” się w jednej cząstce.
+      const i = this.recycle;
+      this.recycle = (this.recycle + 1) % POOL;
+      return i;
     }
     return this.n++;
   }
@@ -414,6 +419,8 @@ export class Particles implements ParticleSystem {
 
   dispose(): void {
     this.object.removeFromParent();
+    // InstancedMesh.dispose() zwalnia bufory GPU instanceMatrix/instanceColor (bez tego wyciekają przy każdej scenie).
+    this.object.dispose();
     this.geo.dispose();
     this.mat.dispose();
     this.atlas?.dispose();

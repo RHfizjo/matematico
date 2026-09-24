@@ -48,6 +48,8 @@ export interface SceneMeshes {
   lights: FlickerLight[];
   shafts: THREE.Mesh[];
   triangles: number;
+  /** Klucze współdzielonych geometrii drzew użytych w tej scenie (patrz pruneTreeCache). */
+  treeKeys: ReadonlySet<string>;
   dispose(): void;
 }
 
@@ -121,8 +123,24 @@ export function clearTreeCache(): void {
   treeGeoCache.clear();
 }
 
+/**
+ * Zwalnia geometrie drzew nieużywane przez bieżącą scenę. Warianty zależą od ziarna sceny, więc bez
+ * sprzątania pamięć GPU rosłaby z każdą wyprawą (nowe ziarno Łąki / pokoju).
+ */
+export function pruneTreeCache(keep: ReadonlySet<string>): void {
+  for (const [key, v] of treeGeoCache) {
+    if (keep.has(key)) continue;
+    v.geo.dispose();
+    treeGeoCache.delete(key);
+  }
+}
+
+function treeKey(kind: TreeKind, variantSeed: number): string {
+  return `${kind}:${variantSeed}`;
+}
+
 function treeGeometry(kind: TreeKind, variantSeed: number): { geo: THREE.BufferGeometry; vol: TreeVolume } {
-  const key = `${kind}:${variantSeed}`;
+  const key = treeKey(kind, variantSeed);
   const hit = treeGeoCache.get(key);
   if (hit) return hit;
   const vol = makeTree(kind, variantSeed);
@@ -234,8 +252,10 @@ export async function buildSceneMeshes(build: SceneBuild, opts: { seed: number; 
   // ── Drzewa (3 warianty na rodzaj, wspólne geometrie).
   const trees: TreeObject[] = [];
   const treeColliders: { x: number; z: number; r: number }[] = [];
+  const treeKeys = new Set<string>();
   for (const t of build.trees) {
     const variant = t.kind === 'bigOak' ? opts.seed : ((opts.seed * 31 + (t.seed % 3)) >>> 0);
+    treeKeys.add(treeKey(t.kind, variant));
     const { geo, vol } = treeGeometry(t.kind, variant);
     const mesh = new THREE.Mesh(geo, terrainMat);
     mesh.position.set(t.x, t.y, t.z);
@@ -294,6 +314,7 @@ export async function buildSceneMeshes(build: SceneBuild, opts: { seed: number; 
     lights,
     shafts,
     triangles,
+    treeKeys,
     dispose() {
       foliage.dispose();
       for (const g of geometries) g.dispose();

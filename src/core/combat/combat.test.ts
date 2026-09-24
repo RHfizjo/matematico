@@ -8,6 +8,7 @@ import {
   endEnemyTurn,
   enemyIntents,
   isHeroDown,
+  phaseDef,
   phaseForCzar,
   phaseThresholds,
   rescue,
@@ -107,7 +108,31 @@ describe('startCombat', () => {
     expect(startCombat(SLIM, HERO, { czar: Number.NaN }).czar).toBe(30);
   });
 
-  it('boss: faza z Czaru i z zapisu; pnącza po wznowieniu = 0; postęp się nie cofa', () => {
+  it('wznowienie zachowuje pnącza (progress.dungeon.vines): przycięte do 0..pnącza fazy', () => {
+    // Faza 2 ma 2 pnącza; po jednym zdjętym zapis ma 1 → wznowienie z 1 (dawniej 0).
+    const a = startCombat(BOSS, HERO, { czar: 70, phase: 2, vines: 1 });
+    expect([a.czar, a.phase, a.vines]).toEqual([70, 2, 1]);
+    expect(startCombat(BOSS, HERO, { czar: 70, phase: 2, vines: 2 }).vines).toBe(2);
+    // Przycięcie: ≥ 0, całkowite, nie więcej niż pnącza fazy.
+    expect(startCombat(BOSS, HERO, { czar: 70, phase: 2, vines: -3 }).vines).toBe(0);
+    expect(startCombat(BOSS, HERO, { czar: 70, phase: 2, vines: 1.9 }).vines).toBe(1);
+    expect(startCombat(BOSS, HERO, { czar: 70, phase: 2, vines: 99 }).vines).toBe(2);
+    expect(startCombat(BOSS, HERO, { czar: 70, phase: 2, vines: Number.NaN }).vines).toBe(0);
+    expect(startCombat(BOSS, HERO, { czar: 70, phase: 2, vines: Number.POSITIVE_INFINITY }).vines).toBe(0);
+    // Faza bez pnączy (1 lub 3) → 0, nawet gdy zapis ma pnącza.
+    expect(startCombat(BOSS, HERO, { czar: 110, vines: 2 }).vines).toBe(0);
+    expect(startCombat(BOSS, HERO, { czar: 30, phase: 2, vines: 2 })).toMatchObject({ phase: 3, vines: 0 });
+    // Zwykły wróg nie ma pnączy.
+    expect(startCombat(SLIM, HERO, { czar: 12, vines: 2 }).vines).toBe(0);
+    // Same pnącza (bez Czaru i fazy) też są wznowieniem: faza 1 bez pnączy → 0.
+    expect(startCombat(BOSS, HERO, { vines: 2 })).toMatchObject({ czar: 120, phase: 1, vines: 0 });
+    // Pnącza z zapisu nadal chronią bossa (atak nie zdejmuje Czaru, zdejmuje pnącze).
+    const s = startCombat(BOSS, HERO, { czar: 70, phase: 2, vines: 1 });
+    applyPlayerAttack(s, BOSS, 'attack', 'correct', HERO);
+    expect([s.czar, s.vines]).toEqual([70, 0]);
+  });
+
+  it('boss: faza z Czaru i z zapisu; pnącza po wznowieniu bez vines = 0; postęp się nie cofa', () => {
     const a = startCombat(BOSS, HERO, { czar: 70, phase: 2 });
     expect([a.czar, a.phase, a.vines]).toEqual([70, 2, 0]);
     const b = startCombat(BOSS, HERO, { phase: 3 });
@@ -504,6 +529,7 @@ describe('właściwości walki (fast-check)', () => {
       fc.record({
         czar: fc.option(fc.integer({ min: -5, max: 200 }), { nil: undefined }),
         phase: fc.option(fc.integer({ min: 0, max: 5 }), { nil: undefined }),
+        vines: fc.option(fc.integer({ min: -3, max: 5 }), { nil: undefined }),
       }),
       { nil: undefined },
     );
@@ -518,6 +544,8 @@ describe('właściwości walki (fast-check)', () => {
           const heroSnap = JSON.stringify(h);
           const s = startCombat(enemy, h, resume);
           expect(s.phase).toBe(phaseForCzar(enemy, s.czar, s.maxCzar));
+          expect(Number.isInteger(s.vines) && s.vines >= 0).toBe(true);
+          expect(s.vines).toBeLessThanOrEqual(phaseDef(enemy, s.phase)?.vines ?? 0);
           let returned = 0;
           for (const [op, r] of ops) {
             const before = { czar: s.czar, phase: s.phase, vines: s.vines };

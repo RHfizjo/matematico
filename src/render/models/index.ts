@@ -5,7 +5,8 @@
  *
  * Uwagi dla render/:
  *  - Modele budowane w kodzie z kostek; kostki części łączone w jedną siatkę z kolorami w wierzchołkach
- *    (wspólny materiał bazowy), świecące kostki — wspólne materiały emisyjne per kolor. Zwykle 5–25 siatek na model.
+ *    (wspólny materiał bazowy), świecące kostki części — też jedna siatka (wspólny MeshBasicMaterial, kolor HDR
+ *    w wierzchołkach). Zwykle 2–21 siatek na model (brainglamy ≤ 22 — test).
  *  - Hierarchia: rig.root (TY: pozycja, obrót Y, skala) → 'fx' (przemiana) → 'all' (animacja) → części.
  *    Nie ruszaj dzieci root — animacja nadpisuje je co klatkę.
  *  - 'hide' trzyma model schowany (current === 'hide') do następnego play() (zwykle 'appear').

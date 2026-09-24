@@ -20,6 +20,7 @@ import type {
 } from '../types';
 import {
   ATTEMPT_MODES,
+  CARD_IDS,
   CATEGORY_IDS,
   CREATURE_IDS,
   DISTRACTOR_KINDS,
@@ -30,6 +31,7 @@ import {
   LAND_IDS,
   OPS,
   QUALITY_PRESETS,
+  STARTER_CARDS,
   TIME_LIMIT_MODES,
 } from './ids';
 import { defaultSettings } from './defaults';
@@ -179,8 +181,29 @@ const dungeonArb: fc.Arbitrary<SaveV1['progress']['dungeon']> = fc
     roomIndex: count(10),
     enemyCzar: fc.dictionary(roomArb, dbl(0, 200), { maxKeys: 3, noNullPrototype: true }),
     bossPhase: fc.integer({ min: 1, max: 3 }),
+    vines: fc.integer({ min: 0, max: L.vinesMax }),
+    heroHp: fc.option(fc.integer({ min: 1, max: L.heroHpMax }), { nil: null }),
   })
-  .map((d) => ({ ...d, roomIndex: Math.min(d.roomIndex, d.roomOrder.length) }));
+  .map((d) => ({
+    active: d.active,
+    roomOrder: d.roomOrder,
+    roomIndex: Math.min(d.roomIndex, d.roomOrder.length),
+    enemyCzar: d.enemyCzar,
+    bossPhase: d.bossPhase,
+    vines: d.vines,
+    heroHp: d.heroHp,
+  }));
+
+/** Kolekcja kart: dowolne znane karty 0..99 kopii; karty startowe zawsze ≥ 3 (GDD 9.5a). */
+export const cardsArb: fc.Arbitrary<SaveV1['cards']> = fc
+  .dictionary(fc.constantFrom(...CARD_IDS), fc.integer({ min: 0, max: L.cardMax }), { maxKeys: CARD_IDS.length, noNullPrototype: true })
+  .map((d) => {
+    const owned: Record<string, number> = { ...d };
+    for (const [id, start] of Object.entries(STARTER_CARDS)) {
+      owned[id] = Math.max(owned[id] ?? start, Math.min(start, L.starterCardMin));
+    }
+    return { owned };
+  });
 
 const equipmentArb: fc.Arbitrary<SaveV1['equipment']> = fc
   .tuple(
@@ -209,6 +232,7 @@ export const saveArb: fc.Arbitrary<SaveV1> = fc
     settings: settingsArb,
     model: modelArb,
     digits: fc.array(fc.integer({ min: 0, max: L.digitMax }), { minLength: 10, maxLength: 10 }),
+    cards: cardsArb,
     // Plusik zawsze (prezent na start, nie da się go stracić).
     creatures: fc.subarray(CREATURE_IDS.filter((id) => id !== 'plusik')).map((ids) => ['plusik', ...ids]),
     creatureLevels: fc.array(fc.integer({ min: 1, max: L.creatureMaxLevel }), { minLength: 4, maxLength: 4 }),
@@ -223,6 +247,7 @@ export const saveArb: fc.Arbitrary<SaveV1> = fc
     openedChests: fc.uniqueArray(fc.constantFrom('c1', 'c2', 'meadow:chest:3', 'x'), { maxLength: 4 }),
     chestPity: count(3),
     dungeon: dungeonArb,
+    merchantDailyCycle: fc.integer({ min: -1, max: 40 }),
     history: fc.array(attemptArb, { maxLength: 30 }),
     sessions: fc.array(sessionArb, { maxLength: 8 }),
   })
@@ -240,6 +265,7 @@ export const saveArb: fc.Arbitrary<SaveV1> = fc
       settings: r.settings,
       model: r.model,
       inventory: { digits: r.digits },
+      cards: r.cards,
       creatures: r.creatures.map((id, i) => ({
         id,
         level: r.creatureLevels[i] ?? 1,
@@ -258,6 +284,7 @@ export const saveArb: fc.Arbitrary<SaveV1> = fc
         chestPity: r.chestPity,
         dungeon: r.dungeon,
         pendingBonusChest: r.flags[3],
+        merchantDailyCycle: Math.min(r.merchantDailyCycle, r.cycle),
       },
       history: r.history,
       sessions: r.sessions,

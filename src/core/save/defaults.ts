@@ -1,6 +1,6 @@
 /** Wartości domyślne zapisu (GDD 18.3, 19). Każde wywołanie zwraca świeży obiekt. */
 import type { Digits, EquipSlot, LandId, LandProgress, OwnedItem, ParentSettings, SaveV1, SkillModel } from '../types';
-import { LAND_IDS, STARTER_EQUIPPED } from './ids';
+import { LAND_IDS, STARTER_CARDS, STARTER_EQUIPPED } from './ids';
 
 /** Domyślne ustawienia rodzica (GDD 18.3). */
 export function defaultSettings(): ParentSettings {
@@ -41,7 +41,7 @@ export function defaultLands(): Record<LandId, LandProgress> {
 }
 
 export function defaultDungeon(): SaveV1['progress']['dungeon'] {
-  return { active: false, roomOrder: [], roomIndex: 0, enemyCzar: {}, bossPhase: 1 };
+  return { active: false, roomOrder: [], roomIndex: 0, enemyCzar: {}, bossPhase: 1, vines: 0, heroHp: null };
 }
 
 export function defaultProgress(): SaveV1['progress'] {
@@ -56,7 +56,15 @@ export function defaultProgress(): SaveV1['progress'] {
     chestPity: 0,
     dungeon: defaultDungeon(),
     pendingBonusChest: false,
+    merchantDailyCycle: -1,
   };
+}
+
+/** Karty na start (GDD 13.5): świeża kopia talii startowej. */
+export function starterCards(): SaveV1['cards'] {
+  const owned: Record<string, number> = {};
+  for (const [id, n] of Object.entries(STARTER_CARDS)) owned[id] = n;
+  return { owned };
 }
 
 /** Sprzęt startowy: miecz, kamizelka i siatka na poziomie 1, bez amuletu. */

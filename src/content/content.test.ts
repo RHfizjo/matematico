@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { LandId } from '../core/types';
+import type { ActionKind, CardKind, LandId } from '../core/types';
 import {
   BOSS_ITEMS_MEADOW,
+  CARDS,
+  CARD_GRANTS,
   CHEST_ITEM_POOL_MEADOW,
   CREATURES,
   ENEMIES,
@@ -86,7 +88,7 @@ describe('brainroty (GDD 13.2, 13.3)', () => {
       glamName: 'Ślimakella Glamella',
       czar: 30,
       behavior: 'normal',
-      attack: 15,
+      attack: 10,
       isBoss: false,
     });
     expect(trzmielini).toMatchObject({
@@ -94,7 +96,7 @@ describe('brainroty (GDD 13.2, 13.3)', () => {
       glamName: 'Trzmielina Brokatina',
       czar: 25,
       behavior: 'fast',
-      attack: 12,
+      attack: 8,
       isBoss: false,
     });
     expect(grzybello).toMatchObject({
@@ -102,8 +104,8 @@ describe('brainroty (GDD 13.2, 13.3)', () => {
       glamName: 'Grzybella Perłella',
       czar: 40,
       behavior: 'heavy',
-      attack: 15,
-      strongAttack: 25,
+      attack: 10,
+      strongAttack: 22,
       strongEvery: 3,
       isBoss: false,
     });
@@ -112,8 +114,9 @@ describe('brainroty (GDD 13.2, 13.3)', () => {
       glamName: 'Kwiatorra, Królowa Łąki',
       czar: 120,
       behavior: 'boss',
-      attack: 15,
-      strongAttack: 25,
+      attack: 12,
+      strongAttack: 24,
+      strongEvery: 0,
       isBoss: true,
     });
     expect(kosiarrini?.phases?.map((p) => [p.czarFrom, p.vines, p.strongEvery])).toEqual([
@@ -133,6 +136,135 @@ describe('brainroty (GDD 13.2, 13.3)', () => {
       expect(e.glamThanks).not.toMatch(VIOLENT);
       if (!e.isBoss) expect(e.phases).toBeUndefined();
     }
+  });
+});
+
+describe('karty (GDD 13.5)', () => {
+  const IDS = [
+    'cios-plusika',
+    'tarcza-z-lisci',
+    'tarcza-dopelniaka',
+    'podwojny-dziob',
+    'koniczynowa-tarcza',
+    'lepka-kokarda',
+    'brokatowy-roj',
+    'perlowy-zdroj',
+    'krolewski-bukiet',
+  ];
+  const ATTACK_KINDS: CardKind[] = ['attack', 'strongAttack', 'multiHit', 'combo'];
+  const ACTIONS: ActionKind[] = ['attack', 'strongAttack', 'defend', 'strongDefend'];
+
+  it('stałe id i klucze = id', () => {
+    expect(Object.keys(CARDS)).toEqual(IDS);
+    for (const [k, c] of Object.entries(CARDS)) expect(c.id).toBe(k);
+  });
+
+  it('liczby zgodne z tabelą 13.5', () => {
+    // [id, nazwa, rodzaj, koszt, siła, siła2, rzadkość, pula, źródło, id źródła]
+    const rows = IDS.map((id) => {
+      const c = CARDS[id];
+      return [id, c?.name, c?.kind, c?.cost, c?.power, c?.power2, c?.rarity, c?.pool, c?.source, c?.sourceId];
+    });
+    expect(rows).toEqual([
+      ['cios-plusika', 'Cios Plusika', 'attack', 1, 8, 0, 'common', 'attack', 'starter', 'plusik'],
+      ['tarcza-z-lisci', 'Tarcza z liści', 'shield', 1, 8, 0, 'common', 'defend', 'starter', null],
+      ['tarcza-dopelniaka', 'Tarcza Dopełniaka', 'shield', 1, 12, 0, 'common', 'defend', 'creature', 'dopelniak'],
+      ['podwojny-dziob', 'Podwójny dziób', 'strongAttack', 2, 20, 0, 'uncommon', 'strongAttack', 'creature', 'blizniak'],
+      ['koniczynowa-tarcza', 'Koniczynowa tarcza', 'bigShield', 1, 22, 0, 'rare', 'strongDefend', 'creature', 'koniczynek'],
+      ['lepka-kokarda', 'Lepka kokarda', 'weaken', 1, 50, 0, 'uncommon', 'defend', 'glam', 'slimakorro'],
+      ['brokatowy-roj', 'Brokatowy rój', 'multiHit', 1, 4, 3, 'uncommon', 'attack', 'glam', 'trzmielini'],
+      ['perlowy-zdroj', 'Perłowy zdrój', 'heal', 1, 15, 0, 'uncommon', 'defend', 'glam', 'grzybello'],
+      ['krolewski-bukiet', 'Królewski bukiet', 'combo', 2, 14, 10, 'legendary', 'strongAttack', 'glam', 'kosiarrini'],
+    ]);
+  });
+
+  it('pola poprawne: źródło, portret, pula, opis', () => {
+    for (const c of Object.values(CARDS)) {
+      expect(c.name.length).toBeGreaterThan(0);
+      expect([1, 2]).toContain(c.cost);
+      expect(Number.isInteger(c.power) && c.power > 0).toBe(true);
+      expect(Number.isInteger(c.power2) && c.power2 >= 0).toBe(true);
+      // power2 tylko dla kilku ciosów (liczba ciosów) i ataku z tarczą (tarcza).
+      expect(c.power2 > 0).toBe(c.kind === 'multiHit' || c.kind === 'combo');
+      if (c.kind === 'weaken') expect(c.power).toBeLessThanOrEqual(100);
+      expect(ACTIONS).toContain(c.pool);
+      // Karty ataku losują zadania z puli ataku, pozostałe — z puli obrony.
+      const attackPool = c.pool === 'attack' || c.pool === 'strongAttack';
+      expect(attackPool).toBe(ATTACK_KINDS.includes(c.kind));
+      // Źródło i portret.
+      if (c.source === 'creature') {
+        expect(CREATURES[c.sourceId ?? '']).toBeDefined();
+        expect(c.art).toBe(`creature:${c.sourceId}`);
+      } else if (c.source === 'glam') {
+        expect(ENEMIES[c.sourceId ?? '']).toBeDefined();
+        expect(c.art).toBe(`glam:${c.sourceId}`);
+      } else {
+        expect(c.sourceId === null || CREATURES[c.sourceId] !== undefined).toBe(true);
+      }
+      expect(c.art).toMatch(/^(creature|glam|prop):[a-z-]+$/);
+      // Opis: jedno krótkie zdanie po polsku, bez ASCII minusa i „x” zamiast mnożenia.
+      expect(oneSentence(c.description)).toBe(true);
+      expect(c.description.length).toBeLessThanOrEqual(45);
+      expect(c.description).not.toMatch(/\d\s*-\s*\d|\d\s*x\s*\d/);
+      expect(`${c.name} ${c.description}`).not.toMatch(VIOLENT);
+      // Liczby w opisie = siła karty (osłabienie opisane słownie: „o połowę”).
+      if (c.kind === 'weaken') expect(c.description).toMatch(/połowę/);
+      else expect(c.description).toContain(String(c.power));
+      if (c.power2 > 0) expect(c.description).toContain(String(c.power2));
+    }
+    expect(CARDS['brokatowy-roj']?.description).toBe('3 ciosy po 4 Czaru.');
+    expect(CARDS['krolewski-bukiet']?.description).toBe('14 Czaru i tarcza 10.');
+    expect(CARDS['perlowy-zdroj']?.description).toBe('Ulecz 15 serduszek.');
+    expect(CARDS['lepka-kokarda']?.description).toBe('Następny ruch brainrota słabszy o połowę.');
+  });
+
+  it('talia startowa: 5 × Cios Plusika + 3 × Tarcza z liści', () => {
+    expect(CARD_GRANTS.starter).toEqual({ 'cios-plusika': 5, 'tarcza-z-lisci': 3 });
+    for (const [id, n] of Object.entries(CARD_GRANTS.starter)) {
+      expect(CARDS[id]?.source).toBe('starter');
+      expect(Number.isInteger(n) && n > 0).toBe(true);
+    }
+  });
+
+  it('każdy stworek ma kartę; karta istnieje i należy do stworka', () => {
+    expect(Object.keys(CARD_GRANTS.creatures).sort()).toEqual(Object.keys(CREATURES).sort());
+    for (const [creatureId, g] of Object.entries(CARD_GRANTS.creatures)) {
+      const card = CARDS[g.cardId];
+      expect(card).toBeDefined();
+      expect(card?.sourceId).toBe(creatureId);
+      expect(card?.source).not.toBe('glam');
+      expect(Number.isInteger(g.onCatch) && g.onCatch >= 1).toBe(true);
+      expect(Number.isInteger(g.onLevelUp) && g.onLevelUp >= 1).toBe(true);
+    }
+    expect(CARD_GRANTS.creatures).toEqual({
+      plusik: { cardId: 'cios-plusika', onCatch: 1, onLevelUp: 1 },
+      dopelniak: { cardId: 'tarcza-dopelniaka', onCatch: 2, onLevelUp: 1 },
+      blizniak: { cardId: 'podwojny-dziob', onCatch: 2, onLevelUp: 1 },
+      koniczynek: { cardId: 'koniczynowa-tarcza', onCatch: 1, onLevelUp: 1 },
+    });
+  });
+
+  it('każdy brainrot ma kartę brainglama; karta istnieje i należy do niego', () => {
+    expect(Object.keys(CARD_GRANTS.glams).sort()).toEqual(Object.keys(ENEMIES).sort());
+    for (const [enemyId, cardId] of Object.entries(CARD_GRANTS.glams)) {
+      const card = CARDS[cardId];
+      expect(card).toBeDefined();
+      expect(card?.source).toBe('glam');
+      expect(card?.sourceId).toBe(enemyId);
+      // Boss daje kartę legendarną, zwykłe brainroty — niezwykłe.
+      expect(card?.rarity).toBe(ENEMIES[enemyId]?.isBoss === true ? 'legendary' : 'uncommon');
+    }
+  });
+
+  it('każdą kartę da się zdobyć (start, stworek albo brainglam), każdą dokładnie z jednego stworka/brainrota', () => {
+    const granted = [
+      ...Object.keys(CARD_GRANTS.starter),
+      ...Object.values(CARD_GRANTS.creatures).map((g) => g.cardId),
+      ...Object.values(CARD_GRANTS.glams),
+    ];
+    expect([...new Set(granted)].sort()).toEqual(Object.keys(CARDS).sort());
+    const owners = [...Object.values(CARD_GRANTS.creatures).map((g) => g.cardId), ...Object.values(CARD_GRANTS.glams)];
+    expect(new Set(owners).size).toBe(owners.length);
   });
 });
 

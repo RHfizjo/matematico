@@ -6,6 +6,7 @@ import type { DigitPickRequest } from '../../game/contracts';
 import type { UiContext } from '../context';
 import { button, h, onTap, wait } from '../dom';
 import { bubble, digitTile, listen, once, openShell } from './shell';
+import { plural } from './util';
 import './digitPicker.css';
 
 export function pickDigitsPanel(ctx: UiContext, req: DigitPickRequest): Promise<number[] | null> {
@@ -68,7 +69,9 @@ export function pickDigitsPanel(ctx: UiContext, req: DigitPickRequest): Promise<
     else if (e.key === 'Backspace') {
       for (let i = count - 1; i >= 0; i--)
         if (slots[i] !== null) {
+          ctx.sfx('tap');
           slots[i] = null;
+          hideMsg();
           render();
           break;
         }
@@ -130,7 +133,7 @@ export function pickDigitsPanel(ctx: UiContext, req: DigitPickRequest): Promise<
   function submit(): void {
     if (busy) return;
     if (slots.some(v => v === null)) {
-      showMsg(`Wybierz ${count} ${count === 1 ? 'cyfrę' : count < 5 ? 'cyfry' : 'cyfr'}.`, 'info', '🙂');
+      showMsg(`Wybierz ${count} ${plural(count, 'cyfrę', 'cyfry', 'cyfr')}.`, 'info', '🙂');
       return;
     }
     const selected = slots.map(v => v ?? 0);

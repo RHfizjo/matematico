@@ -140,6 +140,8 @@ export class Rig implements ModelRig {
   private ownBase: THREE.MeshLambertMaterial | null = null;
   private boosted = false;
   private readonly groupStates = new Map<string, GroupState>();
+  /** Te same stany co w groupStates — tablica do pętli co klatkę (bez iteratorów). */
+  private readonly groupList: GroupState[] = [];
   private readonly ctx: AnimCtx;
   private readonly fxApi: RigFx;
   private anim: AnimName = 'idle';
@@ -196,7 +198,9 @@ export class Rig implements ModelRig {
     this.from = new PoseWriter(index);
     this.applied = new PoseWriter(index);
     for (const [name, g] of this.built.groups) {
-      this.groupStates.set(name, { mat: g.mat, glow: new THREE.Color(0, 0, 0), tint: new THREE.Color(1, 1, 1) });
+      const st: GroupState = { mat: g.mat, glow: new THREE.Color(0, 0, 0), tint: new THREE.Color(1, 1, 1) };
+      this.groupStates.set(name, st);
+      this.groupList.push(st);
     }
     if (spec.receiveShadow) for (const m of this.built.meshes) m.receiveShadow = true;
 
@@ -303,7 +307,7 @@ export class Rig implements ModelRig {
     ctx.p = isLoop(this.anim) ? 0 : clamp01(this.t / Math.max(1e-3, this.duration(this.anim)));
     this.pose.reset();
     this.flashFrame = 0;
-    for (const g of this.groupStates.values()) {
+    for (const g of this.groupList) {
       g.glow.setRGB(0, 0, 0);
       g.tint.setRGB(1, 1, 1);
     }
@@ -376,7 +380,7 @@ export class Rig implements ModelRig {
       for (const m of this.built.baseMeshes) m.material = this.baseMat;
       this.boosted = false;
     }
-    for (const g of this.groupStates.values()) {
+    for (const g of this.groupList) {
       const e0 = g.mat.userData.emissive0 as THREE.Color;
       const c0 = g.mat.userData.color0 as THREE.Color;
       g.mat.emissive.copy(e0).add(g.glow);

@@ -6,7 +6,7 @@ import { ALL_CATEGORY_IDS, CATEGORIES, allFacts, categoriesOfFact, commutativePa
 import { createNewSave, deserializeSave, serializeSave, validateSave } from '../save';
 import { DEFAULT_PRIORS } from './priors';
 import { RETRY_DONE, bucketOf, createSkillModel, isPendingRetry, recordAttempt, startSession } from './model';
-import { DEFAULT_QUOTAS, classifyResult, pickTask, regulatedQuotas, timeLimitMs } from './scheduler';
+import { DEFAULT_QUOTAS, FALLBACK_ORDER, GUARD_ORDER_NEW_CAPPED, classifyResult, pickTask, regulatedQuotas, timeLimitMs } from './scheduler';
 import { applyCalibration, createCalibration } from './calibration';
 import { T0, attemptForTask, makeSettings } from './testkit';
 
@@ -86,13 +86,23 @@ describe('regulatedQuotas (GDD 6.4)', () => {
 });
 
 describe('pickTask — udziały koszyków po regulatorze', () => {
-  /** 12 faktów w każdym koszyku poza NOWYMI; historia pusta (bez filtrów i limitu NOWYCH). */
+  /**
+   * 12 faktów w każdym koszyku poza NOWYMI (6 par przemiennych — obie orientacje w tym samym koszyku,
+   * więc wybór orientacji bliźniaka nie zmienia koszyka); historia pusta (bez filtrów i limitu NOWYCH).
+   */
   function shares(window: boolean[]): Record<Bucket, number> {
     const m = createSkillModel();
-    const facts = createRng(5).shuffle(allFacts(S20).filter((f) => categoriesOfFact(f).some((c) => MUL_POOL.includes(c))));
-    facts.slice(0, 12).forEach((f) => (m.facts[f] = MASTERED()));
-    facts.slice(12, 24).forEach((f) => (m.facts[f] = WEAK()));
-    facts.slice(24, 36).forEach((f) => (m.facts[f] = PROGRESS()));
+    const pairs = createRng(5).shuffle(
+      allFacts(S20).filter((f) => {
+        const p = commutativePartner(f);
+        return p !== null && f < p && categoriesOfFact(f).some((c) => MUL_POOL.includes(c));
+      }),
+    );
+    const both = (from: number, to: number): string[] =>
+      pairs.slice(from, to).flatMap((f) => [f, commutativePartner(f) as string]);
+    both(0, 6).forEach((f) => (m.facts[f] = MASTERED()));
+    both(6, 12).forEach((f) => (m.facts[f] = WEAK()));
+    both(12, 18).forEach((f) => (m.facts[f] = PROGRESS()));
     m.window = window;
     const count: Record<Bucket, number> = { progress: 0, weak: 0, mastered: 0, new: 0 };
     const rng = createRng(77);
@@ -252,14 +262,55 @@ describe('bezpiecznik frustracji (2 błędy → OPANOWANE)', () => {
     expect(t5.factId).toBe(wrong[0]);
   });
 
-  it('bez opanowanych → W TOKU, potem SŁABE', () => {
+  it('bez opanowanych → W TOKU, potem NOWE, na końcu SŁABE (NOWE przed SŁABYMI)', () => {
     const m = createSkillModel();
     m.facts['mul:3x4'] = PROGRESS();
+    m.facts['mul:4x3'] = PROGRESS();
     m.facts['mul:7x8'] = WEAK();
     m.errorStreak = 2;
-    for (let seed = 0; seed < 20; seed++) expect(pickTask(m, req(MUL_POOL), createRng(seed), T0).factId).toBe('mul:3x4');
+    for (let seed = 0; seed < 20; seed++) expect(['mul:3x4', 'mul:4x3']).toContain(pickTask(m, req(MUL_POOL), createRng(seed), T0).factId);
     delete m.facts['mul:3x4'];
-    for (let seed = 0; seed < 20; seed++) expect(pickTask(m, req(MUL_POOL), createRng(seed), T0).factId).toBe('mul:7x8');
+    delete m.facts['mul:4x3'];
+    // Są NOWE fakty → bezpiecznik bierze NOWY, nie znany słaby 7 × 8.
+    for (let seed = 0; seed < 20; seed++) {
+      const t = pickTask(m, req(MUL_POOL), createRng(seed), T0);
+      expect(bucketOf(m, t.factId as string)).toBe('new');
+    }
+    // Tylko słabe w puli (wszystkie fakty tabliczki ×7 słabe) → SŁABE.
+    const onlyWeak = createSkillModel();
+    const t7 = factsOf('mul.t7', S20) ?? [];
+    for (const f of t7) onlyWeak.facts[f] = WEAK();
+    onlyWeak.errorStreak = 2;
+    for (let seed = 0; seed < 20; seed++) {
+      const t = pickTask(onlyWeak, req(['mul.t7']), createRng(seed), T0);
+      expect(bucketOf(onlyWeak, t.factId as string)).toBe('weak');
+    }
+  });
+
+  it('kolejność zastępcza bezpiecznika: OPANOWANE → W TOKU → NOWE → SŁABE', () => {
+    expect(FALLBACK_ORDER.mastered).toEqual(['mastered', 'progress', 'new', 'weak']);
+    // Gdy limit 1 NOWE na 5 zadań blokuje NOWE — SŁABE przed NOWYMI.
+    expect(GUARD_ORDER_NEW_CAPPED).toEqual(['mastered', 'progress', 'weak', 'new']);
+  });
+
+  it('bezpiecznik nie łamie limitu 1 NOWE na 5 zadań: przy kolejnych błędach SŁABE, nie seria NOWYCH', () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const m = createSkillModel();
+      const facts = allFacts(S20).filter((f) => categoriesOfFact(f).some((c) => MUL_POOL.includes(c)));
+      // 20 znanych słabych faktów (bez rozruchu), brak OPANOWANYCH i W TOKU; dziecko myli się stale.
+      for (const f of createRng(seed).shuffle(facts).slice(0, 20)) m.facts[f] = WEAK();
+      const rng = createRng(seed);
+      const wasNew: boolean[] = [];
+      for (let i = 0; i < 30; i++) {
+        const t = pickTask(m, req(MUL_POOL), rng, T0);
+        wasNew.push(bucketOf(m, t.factId as string) === 'new');
+        recordAttempt(m, attemptForTask(t, false, 5000, T0), T0);
+      }
+      // Dawniej: po 2 błędach bezpiecznik podawał NOWE w każdym zadaniu (28 NOWYCH pod rząd).
+      for (let i = 0; i + 5 <= wasNew.length; i++) {
+        expect(wasNew.slice(i, i + 5).filter((x) => x).length, wasNew.map((x) => (x ? 'N' : '.')).join('')).toBeLessThanOrEqual(1);
+      }
+    }
   });
 
   it('poprawna odpowiedź wyłącza bezpiecznik', () => {
@@ -268,6 +319,133 @@ describe('bezpiecznik frustracji (2 błędy → OPANOWANE)', () => {
     const t = pickTask(m, req(MUL_POOL), createRng(1), T0);
     recordAttempt(m, attemptForTask(t, true, 3000, T0), T0);
     expect(m.errorStreak).toBe(0);
+  });
+});
+
+describe('bliźniaki przemienne: orientacja z mniejszą liczbą prób', () => {
+  const count = (m: SkillModel, r: TaskRequest, seeds: number): Map<string, number> => {
+    const out = new Map<string, number>();
+    for (let seed = 0; seed < seeds; seed++) {
+      const f = pickTask(structuredClone(m), r, createRng(seed), T0).factId as string;
+      out.set(f, (out.get(f) ?? 0) + 1);
+    }
+    return out;
+  };
+
+  it('słaba para 7 × 8 (n = 10) / 8 × 7 (n = 2): zawsze 8 × 7', () => {
+    const m = createSkillModel();
+    m.facts['mul:7x8'] = fact({ m: 0.3, n: 10, nOk: 3, box: 0, last2: [false, false] });
+    m.facts['mul:8x7'] = fact({ m: 0.3, n: 2, nOk: 1, box: 0, last2: [false, true] });
+    const forced = count(m, req(MUL_POOL, { forceBucket: 'weak' }), 200);
+    expect([...forced.keys()]).toEqual(['mul:8x7']);
+    // Zwykły dobór: para bywa wybrana, ale zawsze w rzadziej ćwiczonej orientacji.
+    const normal = count(m, req(MUL_POOL), 400);
+    expect(normal.get('mul:8x7') ?? 0).toBeGreaterThan(20);
+    expect(normal.get('mul:7x8')).toBeUndefined();
+  });
+
+  it('remis liczby prób → 50/50', () => {
+    const m = createSkillModel();
+    m.facts['mul:7x8'] = WEAK();
+    m.facts['mul:8x7'] = WEAK();
+    const c = count(m, req(MUL_POOL, { forceBucket: 'weak' }), 600);
+    const a = c.get('mul:7x8') ?? 0;
+    expect(a + (c.get('mul:8x7') ?? 0)).toBe(600);
+    expect(a / 600).toBeGreaterThan(0.43);
+    expect(a / 600).toBeLessThan(0.57);
+  });
+
+  it('bezpiecznik i wymuszony koszyk: bez zmiany koszyka (opanowany 7 × 8 nie zamienia się na 8 × 7 W TOKU)', () => {
+    const m = createSkillModel();
+    m.facts['mul:7x8'] = MASTERED();
+    m.facts['mul:8x7'] = PROGRESS();
+    m.errorStreak = 2;
+    expect([...count(m, req(MUL_POOL), 100).keys()]).toEqual(['mul:7x8']);
+    m.errorStreak = 0;
+    expect([...count(m, req(MUL_POOL, { forceBucket: 'mastered' }), 100).keys()]).toEqual(['mul:7x8']);
+  });
+
+  it('powtórka po błędzie pokazuje ten sam fakt (bez zamiany na rzadziej ćwiczonego bliźniaka)', () => {
+    const m = createSkillModel();
+    m.facts['mul:7x8'] = fact({ m: 0.3, n: 10, nOk: 3, box: 0, last2: [false, false] });
+    m.facts['mul:8x7'] = fact({ m: 0.3, n: 1, nOk: 1, box: 0, last2: [true] });
+    m.taskCounter = 10;
+    m.retries.push({ factId: 'mul:7x8', categoryId: 'mul.t7', dueAtTask: 11, session: 0 });
+    expect(pickTask(m, req(MUL_POOL), createRng(1), T0).factId).toBe('mul:7x8');
+  });
+
+  it('słaby 7 × 8 (n = 10) z opanowanym bliźniakiem 8 × 7 (n = 5): słaby fakt nadal ćwiczony (bez zamiany koszyka)', () => {
+    const m = createSkillModel();
+    m.facts['mul:7x8'] = fact({ m: 0.3, n: 10, nOk: 3, box: 0, last2: [false, false] });
+    m.facts['mul:8x7'] = MASTERED();
+    const c = count(m, req(MUL_POOL), 400);
+    // Dawniej każde wylosowanie 7 × 8 zamieniało się na opanowany 8 × 7 — słaby fakt nie wracał nigdy.
+    expect(c.get('mul:7x8') ?? 0).toBeGreaterThan(40);
+    // Odwrotnie: opanowany 7 × 8 (n = 10) nie oddaje miejsca słabemu 8 × 7 (n = 3) — udział OPANOWANYCH bez zmian.
+    const r = createSkillModel();
+    r.facts['mul:7x8'] = fact({ m: 0.9, n: 10, nOk: 10, box: 2, last2: [true, true] });
+    r.facts['mul:8x7'] = fact({ m: 0.3, n: 3, nOk: 1, box: 0, last2: [false, false] });
+    const f = count(r, req(MUL_POOL, { forceBucket: 'mastered' }), 50);
+    expect([...f.keys()]).toEqual(['mul:7x8']);
+    const n = count(r, req(MUL_POOL), 400);
+    expect(n.get('mul:7x8') ?? 0).toBeGreaterThan(40);
+  });
+
+  it('regulator < 60%: nieoglądany bliźniak nie zabiera udziału OPANOWANYCH (GDD 6.4)', () => {
+    const m = createSkillModel();
+    const pairs = createRng(5).shuffle(
+      allFacts(S20).filter((f) => {
+        const p = commutativePartner(f);
+        return p !== null && f < p && categoriesOfFact(f).some((c) => MUL_POOL.includes(c));
+      }),
+    );
+    // 12 opanowanych faktów, których bliźniaki znane są tylko z aktualizacji partnera (n = 0 → NOWE),
+    // i 12 słabych par.
+    for (const f of pairs.slice(0, 12)) {
+      m.facts[f] = MASTERED();
+      m.facts[commutativePartner(f) as string] = fact({ m: 0.8, n: 0, nOk: 0, box: 0, last2: [] });
+    }
+    for (const f of pairs.slice(12, 24)) {
+      m.facts[f] = WEAK();
+      m.facts[commutativePartner(f) as string] = WEAK();
+    }
+    m.window = [false, false, false, false, false, true];
+    const q = regulatedQuotas(m);
+    const rng = createRng(3);
+    const got: Record<Bucket, number> = { progress: 0, weak: 0, mastered: 0, new: 0 };
+    const N = 2000;
+    for (let i = 0; i < N; i++) got[bucketOf(m, pickTask(m, req(MUL_POOL), rng, T0).factId as string)] += 1;
+    // Brak W TOKU → udziały pozostałych koszyków proporcjonalnie (jak sampleBucket).
+    const present = q.mastered + q.weak + q.new;
+    expect(Math.abs(got.mastered / N - q.mastered / present)).toBeLessThan(0.04);
+    expect(Math.abs(got.new / N - q.new / present)).toBeLessThan(0.04);
+    // Bez regulatora (puste okno) nieoglądany bliźniak nadal wchodzi za znanego (limit 1 NOWE na 5).
+    m.window = [];
+    const free = count(m, req(MUL_POOL), 300);
+    const twins = pairs.slice(0, 12).map((f) => commutativePartner(f) as string);
+    expect(twins.some((t) => (free.get(t) ?? 0) > 0)).toBe(true);
+    expect(pairs.slice(0, 12).every((f) => free.get(f) === undefined)).toBe(true);
+  });
+
+  it('limit NOWYCH: nieoglądany bliźniak nie wchodzi, gdy NOWE było w ostatnich 4 zadaniach', () => {
+    const m = createSkillModel();
+    const facts = allFacts(S20).filter((f) => categoriesOfFact(f).some((c) => MUL_POOL.includes(c)));
+    // 30 znanych faktów (bez rozruchu), 7 × 8 opanowany, 8 × 7 nieoglądany (NOWY).
+    for (const f of facts.filter((x) => x !== 'mul:8x7').slice(0, 30)) m.facts[f] = fact({ m: 0.3, n: 5, box: 0, last2: [false, false] });
+    m.facts['mul:7x8'] = fact({ m: 0.3, n: 5, box: 0, last2: [false, false] });
+    // Ostatnie zadanie: pierwsza próba nowego faktu (n = 1).
+    m.facts['mul:10x10'] = fact({ m: 0.6, n: 1, box: 0, last2: [true] });
+    m.recent = [{ factId: 'mul:10x10', categoryId: 'mul.t10' }];
+    const c = count(m, req(MUL_POOL, { forceBucket: 'weak' }), 200);
+    expect(c.get('mul:8x7')).toBeUndefined();
+    const normal = count(m, req(MUL_POOL), 300);
+    expect(normal.get('mul:8x7')).toBeUndefined();
+    expect(normal.get('mul:7x8') ?? 0).toBeGreaterThan(0);
+    // Bez niedawnego NOWEGO — bliźniak (n = 0 < 5) wchodzi zamiast 7 × 8.
+    m.recent = [];
+    const free = count(m, req(MUL_POOL), 300);
+    expect(free.get('mul:7x8')).toBeUndefined();
+    expect(free.get('mul:8x7') ?? 0).toBeGreaterThan(0);
   });
 });
 
@@ -349,9 +527,12 @@ describe('powtórka po błędzie (GDD 5.4)', () => {
     expect(validateSave(JSON.parse(serializeSave(save)))).toEqual([]);
     const loaded = deserializeSave(serializeSave(save)).model;
     expect(loaded.retries).toEqual(m.retries);
+    // Powtórka traktowana jako zaległa wróciłaby już w 2. zadaniu (poza regułą „nie powtarzaj”);
+    // później fakt może wrócić tylko zwykłym losowaniem.
     for (let i = 0; i < 5; i++) {
       const t = pickTask(loaded, r, rng, T0);
-      expect(t.factId).not.toBe(first.factId);
+      if (i < 3) expect(t.factId).not.toBe(first.factId);
+      expect(loaded.retries.filter((x) => x.factId === first.factId && isPendingRetry(x))).toEqual([]);
       recordAttempt(loaded, attemptForTask(t, true, 3000, T0), T0);
     }
   });

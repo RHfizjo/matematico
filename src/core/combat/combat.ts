@@ -68,20 +68,23 @@ export function phaseForCzar(enemy: EnemyDef, czar: number, maxCzar: number = en
 }
 
 /**
- * Nowa walka. `resume` odtwarza przerwaną walkę (Czar i faza z zapisu, GDD 7.5):
+ * Nowa walka. `resume` odtwarza przerwaną walkę (Czar, faza i pnącza z zapisu, GDD 7.5):
  * Czar przycinany do 1..max (i do progu zapisanej fazy — postęp się nie cofa),
- * faza = max(zapisana, wynikająca z Czaru). Pnącza nie są zapisywane: po wznowieniu 0.
+ * faza = max(zapisana, wynikająca z Czaru). Pnącza (progress.dungeon.vines) zachowane: liczba
+ * całkowita przycięta do 0..pnącza bieżącej fazy (≥ 0; faza bez pnączy → 0). Wznowienie bez
+ * `vines` (lub z NaN) → 0 pnączy (jak dawniej).
  */
 export function startCombat(
   enemy: EnemyDef,
   hero: HeroStats,
-  resume?: { czar?: number; phase?: number },
+  resume?: { czar?: number; phase?: number; vines?: number },
 ): CombatState {
   const maxCzar = Math.max(1, Math.round(enemy.czar));
   const nPhases = enemy.phases?.length ?? 0;
   let czar = maxCzar;
   let phase = 1;
-  const resumed = resume !== undefined && (resume.czar !== undefined || resume.phase !== undefined);
+  const resumed =
+    resume !== undefined && (resume.czar !== undefined || resume.phase !== undefined || resume.vines !== undefined);
   if (resume?.czar !== undefined && Number.isFinite(resume.czar)) {
     czar = clamp(Math.round(resume.czar), 1, maxCzar);
   }
@@ -96,13 +99,19 @@ export function startCombat(
       }
     }
   }
+  const phaseVines = phaseDef(enemy, phase)?.vines ?? 0;
+  let vines = phaseVines;
+  if (resumed) {
+    const saved = resume?.vines;
+    vines = saved !== undefined && Number.isFinite(saved) ? clamp(Math.floor(saved), 0, Math.max(0, phaseVines)) : 0;
+  }
   const heroMaxHp = Math.max(1, Math.round(hero.maxHp));
   return {
     enemyId: enemy.id,
     czar,
     maxCzar,
     phase,
-    vines: resumed ? 0 : (phaseDef(enemy, phase)?.vines ?? 0),
+    vines,
     heroHp: heroMaxHp,
     heroMaxHp,
     shieldCharges: Math.max(0, Math.floor(hero.shieldCharges)),
@@ -171,6 +180,19 @@ function dealDamage(state: CombatState, enemy: EnemyDef, amount: number, events:
     state.vines = phaseDef(enemy, next)?.vines ?? 0;
     events.push({ t: 'phase', phase: next, vines: state.vines });
   }
+}
+
+/**
+ * Zdejmuje `amount` Czaru z tą samą logiką faz bossa i przemiany co atak (np. dla walki kartami).
+ * Pnączy NIE sprawdza — o blokadzie decyduje wołający. Kwota zaokrąglana; ≤ 0 lub nieskończona = nic.
+ * Zwraca zdarzenia ('phase', 'transformed'), ale NIE dopisuje ich do `state.log`
+ * (wołający dopisuje je razem z własnymi zdarzeniami, w dobrej kolejności).
+ */
+export function applyCzarDamage(state: CombatState, enemy: EnemyDef, amount: number): CombatEvent[] {
+  const events: CombatEvent[] = [];
+  const a = Number.isFinite(amount) ? Math.round(amount) : 0;
+  dealDamage(state, enemy, a, events);
+  return events;
 }
 
 /**

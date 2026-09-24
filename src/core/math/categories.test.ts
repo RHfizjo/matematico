@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { CategoryId } from '../types';
 import { ALL_CATEGORY_IDS, CATEGORIES, MUL_TABLES, isCategoryAvailable, isTwoDigitCategory, tableOf } from './categories';
+import { createRng } from '../rng';
+import { taskEquation } from './equation';
+import { generateTask } from './generators';
 import { makeSettings } from './testkit';
 
 describe('CATEGORIES', () => {
@@ -31,7 +34,7 @@ describe('CATEGORIES', () => {
       'add.doubles': [10, true],
       'add.within20': [20, true],
       'add.cross10': [20, true],
-      'add.three': [20, false],
+      'add.three': [10, false],
       'add.2d': [100, false],
       'add.2d.carry': [100, false],
       'sub.within10': [10, true],
@@ -79,9 +82,47 @@ describe('isCategoryAvailable', () => {
   it('liczba dostępnych kategorii rośnie z zakresem', () => {
     const count = (r: 10 | 20 | 100): number =>
       ALL_CATEGORY_IDS.filter((id) => isCategoryAvailable(id, makeSettings(r))).length;
-    expect(count(10)).toBe(4 + 18);
+    expect(count(10)).toBe(5 + 18);
     expect(count(20)).toBe(10 + 18);
     expect(count(100)).toBe(32);
+  });
+});
+
+describe('add.three przy zakresie 10', () => {
+  it('dostępne; 3 składniki ≥ 1, suma ≤ 10 (wszystkie formaty)', () => {
+    const s10 = makeSettings(10);
+    expect(isCategoryAvailable('add.three', s10)).toBe(true);
+    const sums = new Set<number>();
+    for (let seed = 0; seed < 400; seed++) {
+      for (const format of ['choice', 'typed', 'missing'] as const) {
+        const t = generateTask({ categoryId: 'add.three', factId: null, rng: createRng(seed), settings: s10, format, id: 't' });
+        const e = taskEquation(t);
+        expect(e.terms).toHaveLength(3);
+        for (const x of e.terms) expect(x).toBeGreaterThanOrEqual(1);
+        expect(e.result).toBeLessThanOrEqual(10);
+        expect(e.result).toBe(e.terms.reduce((a, b) => a + b, 0));
+        expect(t.answer).toBeLessThanOrEqual(10);
+        if (t.format !== 'typed') {
+          expect(t.options).toContain(t.answer);
+          for (const o of t.options) expect(o).toBeGreaterThanOrEqual(0);
+        }
+        sums.add(e.result);
+      }
+    }
+    // Różnorodność: sumy od 3 do 10.
+    expect(Math.min(...sums)).toBe(3);
+    expect(Math.max(...sums)).toBe(10);
+  });
+
+  it('przy zakresie 20 i 100 suma nadal ≤ 20', () => {
+    for (const range of [20, 100] as const) {
+      for (let seed = 0; seed < 200; seed++) {
+        const t = generateTask({ categoryId: 'add.three', factId: null, rng: createRng(seed), settings: makeSettings(range), format: 'choice', id: 't' });
+        const e = taskEquation(t);
+        for (const x of e.terms) expect(x).toBeGreaterThanOrEqual(1);
+        expect(e.result).toBeLessThanOrEqual(20);
+      }
+    }
   });
 });
 

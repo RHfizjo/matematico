@@ -327,7 +327,9 @@ Spokojne tło w czasie odpowiedzi: [HIPOTEZA, pewność 2] bogata wizualnie gra 
 | **Wielka tarcza** | duża tarcza | dzielenie (4:2) | trzy składniki (4+6+3) |
 | **Specjalne** (brainglamy) | leczenie, osłabienie, kilka ciosów, atak + tarcza | wg krainy | pula ataku lub tarczy |
 
-Pula działań karty zależy od **rodzaju karty** i **etapu krainy** (sekcja 6.5; moduł `progression`). Opcja rodzica **„Działania w walce: tematyczne / wszystkie cztery”** działa jak dotąd: w trybie „wszystkie” atak = dodawanie i odejmowanie, mocny atak = mnożenie, tarcza = odejmowanie, wielka tarcza = dzielenie.
+Pula działań karty zależy od **rodzaju karty** i **etapu krainy** (sekcja 6.5; moduł `progression`).
+
+Stworki **nie dają premii do obrony** w walce kartami (v0.3.1) — ich wartością są ich karty (Tarcza Dopełniaka, Koniczynowa tarcza itd.). Opcja rodzica **„Działania w walce: tematyczne / wszystkie cztery”** działa jak dotąd: w trybie „wszystkie” atak = dodawanie i odejmowanie, mocny atak = mnożenie, tarcza = odejmowanie, wielka tarcza = dzielenie.
 
 ### 7.3. Wynik odpowiedzi a siła karty
 
@@ -461,6 +463,8 @@ Handlarz to przyjazny brainglam z kartonowego pudła z wąsem. Wymiana jest **z 
 
 „Zapas” to kopie ponad limit talii (maks. 3 kopie jednej karty w talii). Handlarz nigdy nie zabiera kart z talii bez zapytania.
 
+Handlarz oferuje i losuje tylko karty z **odblokowanych źródeł**: startowe, stworków, które dziecko ma, i brainglamów, które już odczarowało (v0.3.1) — nie sprzeda karty stworka, którego dziecko jeszcze nie spotkało.
+
 ### 9.5. Bilans (sprawdzenie rzędu wielkości)
 
 - Przychód po złapaniu 3 stworków (poziom 1) + karmieniu: ok. 6–9 cyfr na cykl.
@@ -559,10 +563,10 @@ Broń · Pancerz · Sieć · Amulet. Poziomy 1–3 (kuźnia): więcej użyć na 
 
 | Stworek | Rzadkość | Kategoria | Wygląd | Walka | Brama | Produkcja |
 |---|---|---|---|---|---|---|
-| **Plusik** | pospolity | dodawanie do 10 (Ł3: do 20) | zielony kostkowy zajączek, uszy w kształcie „+” | odblokowuje **atak prosty** | `+` | cyfry 1–5 |
-| **Dopełniak** | pospolity | dopełnianie do 10, brakujący składnik | ślimak, muszla z 10 segmentów świecących po kolei | wzmacnia **obronę** (+20%) | — | pary do 10 |
-| **Bliźniak** | niezwykły | podwajanie | dwa identyczne ptaszki-kostki | odblokowuje **atak mocny** „Podwójny dziób” | `×` | pary bliźniacze |
-| **Koniczynek** | rzadki | trzy składniki, do 20 | czterolistna koniczyna na nóżkach, lekko świeci | wzmacnia **obronę przed mocnym atakiem** + tarcza pochłania 1 cios na walkę | — | 6–9 i **0** |
+| **Plusik** | pospolity | dodawanie do 10 (Ł3: do 20) | zielony kostkowy zajączek, uszy w kształcie „+” | karty **Cios Plusika** (atak) | `+` | cyfry 1–5 |
+| **Dopełniak** | pospolity | dopełnianie do 10, brakujący składnik | ślimak, muszla z 10 segmentów świecących po kolei | daje karty **Tarcza Dopełniaka** | — | pary do 10 |
+| **Bliźniak** | niezwykły | podwajanie | dwa identyczne ptaszki-kostki | daje karty **Podwójny dziób** (mocny atak) | `×` | pary bliźniacze |
+| **Koniczynek** | rzadki | trzy składniki, do 20 | czterolistna koniczyna na nóżkach, lekko świeci | daje kartę **Koniczynowa tarcza** | — | 6–9 i **0** |
 
 Koniczynek pojawia się dopiero po pokonaniu bossa (w nocy gry, przy starym dębie) — cel „po MVP” w obrębie MVP.
 
@@ -576,13 +580,15 @@ Koniczynek pojawia się dopiero po pokonaniu bossa (w nocy gry, przy starym dęb
 
 ### 13.3. Boss: Kosiarrini Chwastorrini
 
-Wielki chwast-kosiarka: łodyga z liśćmi, zamiast korzeni kółka kosiarki, na czubku klaszczący mlecz. Czar 120, trzy fazy (po 40):
+Wielki chwast-kosiarka: łodyga z liśćmi, zamiast korzeni kółka kosiarki, na czubku klaszczący mlecz. Czar **90**, trzy fazy (po 30) — v0.3.1: przy 120 Czaru symulacja dawała 11–21 tur (21–38 zadań), za długo dla 8-latka:
 
-| Faza | Zadania | Mechanika |
-|---|---|---|
-| 1 | dodawanie do 10/20 | zwykłe ataki |
-| 2 | podwajanie + dopełnianie | przywołuje 2 pnącza — każde „zwiędnie” po jednym poprawnym ataku |
-| 3 | mieszane z całej Łąki | mocny atak co 2. turę |
+| Faza | Mechanika |
+|---|---|
+| 1 | zwykłe ataki |
+| 2 | przywołuje 2 pnącza — każde „zwiędnie” po jednej poprawnie zagranej karcie ataku; dopóki są pnącza, boss nie traci Czaru |
+| 3 | mocny atak co 2. turę |
+
+Zadania w walce z bossem — jak w każdej walce: z puli **zagranej karty** (v0.3.1).
 
 Po przemianie: **Kwiatorra, Królowa Łąki** (brainglam) — kosiarka zamienia się w karetę z kwiatów.
 
@@ -594,7 +600,7 @@ Zachowanie brainrotów w walce kartami: zapowiedzi zamiast QTE obrony — Ślima
 
 | Karta | Źródło | Rodzaj | Koszt | Siła (poprawnie) | Rzadkość |
 |---|---|---|---|---|---|
-| **Cios Plusika** | start (5 szt.) + Plusik | atak | 1 | 8 Czaru | zwykła |
+| **Cios Plusika** | start (3 szt.) + Plusik | atak | 1 | 8 Czaru | zwykła |
 | **Tarcza z liści** | start (3 szt.) | tarcza | 1 | 8 tarczy | zwykła |
 | **Tarcza Dopełniaka** | Dopełniak (2 szt.) | tarcza | 1 | 12 tarczy | zwykła |
 | **Podwójny dziób** | Bliźniak (2 szt.) | mocny atak | 2 | 20 Czaru | niezwykła |
@@ -604,7 +610,7 @@ Zachowanie brainrotów w walce kartami: zapowiedzi zamiast QTE obrony — Ślima
 | **Perłowy zdrój** | Grzybella Perłella | specjalna: leczenie | 1 | +15 HP | niezwykła |
 | **Królewski bukiet** | Kwiatorra, Królowa Łąki | specjalna: atak + tarcza | 2 | 14 Czaru + 10 tarczy | legendarna |
 
-Talia startowa: 5 × Cios Plusika + 3 × Tarcza z liści (8 kart). Poziom 2 stworka: +1 kopia jego karty; poziom 3: jego karty +25% siły.
+Talia startowa: **3 × Cios Plusika + 3 × Tarcza z liści (6 kart)** — przy limicie 3 kopii w talii nic nie trafia od razu do zapasu (v0.3.1: wcześniejsze 5 + 3 pozwalało sprzedać karty startowe pierwszego dnia). Poziom 2 stworka: +1 kopia jego karty; poziom 3: jego karty +25% siły.
 
 ### 13.4. Sprzęt Łąki
 

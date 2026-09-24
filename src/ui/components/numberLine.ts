@@ -66,15 +66,18 @@ const ease = (t: number): number => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2
 export function numberLine(spec: { from: number; jumps: number[] }, opts: NumberLineOpts = {}): NumberLineView {
   const compact = opts.compact ?? false;
   const W = opts.width ?? (compact ? 640 : 900);
-  const H = opts.height ?? (compact ? 150 : 230);
+  const H = opts.height ?? (compact ? 128 : 230);
   const shown = Math.max(0, Math.min(spec.jumps.length, opts.shown ?? spec.jumps.length));
   const L = numberLineLayout(spec.from, spec.jumps);
   const padX = compact ? 30 : 40;
-  const lineY = H - (compact ? 52 : 66);
+  const lineY = H - (compact ? 48 : 66);
   const x = (v: number): number => padX + ((v - L.min) / (L.max - L.min)) * (W - 2 * padX);
   const unitPx = (W - 2 * padX) / (L.max - L.min);
   const fsLabel = compact ? 16 : 20;
-  const pillH = compact ? 28 : 34;
+  const labelY = lineY + (compact ? 28 : 36);
+  const pillH = compact ? 28 : 36;
+  const digitW = compact ? 10 : 12.5;
+  const pillW = (v: number): number => Math.max(pillH, String(v).length * digitW + (compact ? 14 : 16));
 
   const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: `nl${compact ? ' nl-compact' : ''}`, role: 'img' });
   svg.setAttribute('aria-label', `Oś liczbowa od ${L.min} do ${L.max}`);
@@ -92,9 +95,12 @@ export function numberLine(spec: { from: number; jumps: number[] }, opts: Number
   }
   for (let v = L.min; v <= L.max; v += L.labelStep) {
     const vx = x(v);
-    // Etykiety punktów skoków rysujemy osobno (pastylki) — zwykłe etykiety pod nimi pomijamy.
-    if (stopXs.some(sx => Math.abs(sx - vx) < (compact ? 22 : 28))) continue;
-    svg.append(s('text', { x: vx, y: lineY + (compact ? 28 : 36), class: `nl-label${v % 10 === 0 ? ' nl-label-10' : ''}`, 'font-size': fsLabel }, String(v)));
+    // Punkty skoków mają własne kółka z liczbą — zwykłe etykiety, które by na nie nachodziły, pomijamy.
+    const lw = String(v).length * digitW * 0.9;
+    // Etykieta dokładnie pod punktem zostaje (kółko ją zakryje, gdy się pojawi) — bez „dziur” w trakcie animacji.
+    const hit = shownStops.some((sv, i) => sv !== v && Math.abs((stopXs[i] ?? 0) - vx) < pillW(sv) / 2 + lw / 2 + 3);
+    if (hit) continue;
+    svg.append(s('text', { x: vx, y: labelY, class: `nl-label${v % 10 === 0 ? ' nl-label-10' : ''}`, 'font-size': fsLabel, 'dominant-baseline': 'central' }, String(v)));
   }
 
   // Łuki skoków
@@ -105,12 +111,11 @@ export function numberLine(spec: { from: number; jumps: number[] }, opts: Number
   svg.append(arcLayer, pillLayer);
 
   const makePill = (v: number, cls: string): SVGGElement => {
-    const txt = String(v);
-    const w = txt.length * (compact ? 12 : 15) + (compact ? 18 : 22);
+    const w = pillW(v);
     const g = s('g', { class: `nl-pill ${cls}`, transform: `translate(${x(v)} ${lineY})` });
     g.append(s('circle', { cx: 0, cy: 0, r: compact ? 6 : 8, class: 'nl-dot' }));
-    g.append(s('rect', { x: -w / 2, y: compact ? 11 : 14, width: w, height: pillH, rx: pillH / 2, class: 'nl-pill-bg' }));
-    g.append(s('text', { x: 0, y: (compact ? 11 : 14) + pillH / 2 + 1, class: 'nl-pill-t', 'font-size': compact ? 18 : 22 }, txt));
+    g.append(s('rect', { x: -w / 2, y: labelY - lineY - pillH / 2, width: w, height: pillH, rx: pillH / 2, class: 'nl-pill-bg' }));
+    g.append(s('text', { x: 0, y: labelY - lineY + 1, class: 'nl-pill-t', 'font-size': compact ? 17 : 21 }, String(v)));
     return g;
   };
 
@@ -122,7 +127,7 @@ export function numberLine(spec: { from: number; jumps: number[] }, opts: Number
     const x1 = x(a);
     const x2 = x(b);
     const y0 = lineY - 6;
-    const maxArc = lineY - (compact ? 40 : 52);
+    const maxArc = lineY - (compact ? 34 : 52);
     const hgt = Math.max(compact ? 20 : 26, Math.min(maxArc, Math.abs(x2 - x1) * 0.42 + unitPx * 0.3));
     const cx = (x1 + x2) / 2;
     const cy = y0 - 2 * hgt;
@@ -135,12 +140,13 @@ export function numberLine(spec: { from: number; jumps: number[] }, opts: Number
     const label = signed(j);
     const tw = label.length * (compact ? 11 : 14) + (compact ? 14 : 18);
     const peakY = y0 - hgt;
-    const tag = s('g', { class: `nl-jumptag nl-hidden ${j < 0 ? 'minus' : 'plus'}`, transform: `translate(${cx} ${peakY - (compact ? 14 : 18)})` });
+    const tag = s('g', { class: `nl-jumptag ${j < 0 ? 'minus' : 'plus'}`, transform: `translate(${cx} ${peakY - (compact ? 14 : 18)})`, opacity: 0 });
     tag.append(s('rect', { x: -tw / 2, y: compact ? -13 : -16, width: tw, height: compact ? 26 : 32, rx: compact ? 13 : 16 }));
     tag.append(s('text', { x: 0, y: 1, 'font-size': compact ? 17 : 22 }, label));
     arcLayer.append(tag);
     const last = i === spec.jumps.length - 1;
-    const pill = makePill(b, `${last ? 'nl-end' : 'nl-mid'} nl-hidden`);
+    const pill = makePill(b, last ? 'nl-end' : 'nl-mid');
+    pill.setAttribute('opacity', '0');
     pillLayer.append(pill);
     jumpsEls.push({ path, tag, pill, p0: [x1, y0], c: [cx, cy], p1: [x2, y0] });
   }
@@ -162,12 +168,17 @@ export function numberLine(spec: { from: number; jumps: number[] }, opts: Number
 
   let rafId = 0;
   let resolvePlay: (() => void) | null = null;
+  // Pojawianie się etykiet sterujemy sami (atrybut opacity), bez przejść CSS — niezawodnie w każdej przeglądarce.
+  const reveal = (jmp: Jump, q: number): void => {
+    const o = String(Math.max(0, Math.min(1, q)));
+    jmp.tag.setAttribute('opacity', o);
+    jmp.pill.setAttribute('opacity', o);
+  };
   const finish = (): void => {
     cancelAnimationFrame(rafId);
     for (const j of jumpsEls) {
       setArc(j, 1);
-      j.tag.classList.remove('nl-hidden');
-      j.pill.classList.remove('nl-hidden');
+      reveal(j, 1);
     }
     const lastJ = jumpsEls[jumpsEls.length - 1];
     if (lastJ) setHopper(lastJ.p1[0], lineY);
@@ -181,7 +192,6 @@ export function numberLine(spec: { from: number; jumps: number[] }, opts: Number
       resolvePlay = resolve;
       const per = ms / jumpsEls.length;
       const t0 = performance.now();
-      const shownFlags = jumpsEls.map(() => false);
       const tick = (now: number): void => {
         const t = now - t0;
         const idx = Math.min(jumpsEls.length - 1, Math.floor(t / per));
@@ -191,11 +201,7 @@ export function numberLine(spec: { from: number; jumps: number[] }, opts: Number
           const local = (t - i * per) / (per * 0.78);
           const p = Math.max(0, Math.min(1, local));
           setArc(j, ease(p));
-          if (p >= 1 && !shownFlags[i]) {
-            shownFlags[i] = true;
-            j.tag.classList.remove('nl-hidden');
-            j.pill.classList.remove('nl-hidden');
-          }
+          reveal(j, (t - i * per - per * 0.72) / 180);
         }
         const cur = jumpsEls[idx];
         if (cur) {

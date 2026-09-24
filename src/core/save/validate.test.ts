@@ -16,6 +16,17 @@ describe('validateSave', () => {
     expect(isValidSave(createNewSave(1000, 7))).toBe(true);
   });
 
+  it('akceptuje zera kopii kart spoza startu, HP w dungeonie i kupioną ofertę dnia', () => {
+    const s = loose();
+    s.cards.owned['podwojny-dziob'] = 0;
+    s.cards.owned['krolewski-bukiet'] = 99;
+    s.progress.dungeon.heroHp = 999;
+    s.progress.dungeon.vines = 2;
+    s.progress.cycle = 3;
+    s.progress.merchantDailyCycle = 3;
+    expect(validateSave(s)).toEqual([]);
+  });
+
   it('nie-obiekty', () => {
     for (const v of [null, undefined, 5, 'x', []]) expect(validateSave(v).length).toBeGreaterThan(0);
   });
@@ -52,6 +63,24 @@ describe('validateSave', () => {
       ['model.recent[0].factId', (s) => s.model.recent.push({ factId: 'add:01+2', categoryId: 'add.within10' })],
       ['profile.name', (s) => (s.profile.name = 'Ola\ud83d')],
       ['creatures', (s) => (s.creatures = [])],
+      // Karty i nowe pola postępu (GDD v0.3):
+      ['cards', (s) => delete s.cards],
+      ['cards.owned', (s) => (s.cards.owned = [])],
+      ['cards.x', (s) => (s.cards.x = 1)],
+      ['cards.owned[karta-z-kosmosu]', (s) => (s.cards.owned['karta-z-kosmosu'] = 1)],
+      ['cards.owned[podwojny-dziob]', (s) => (s.cards.owned['podwojny-dziob'] = 1.5)],
+      ['cards.owned[podwojny-dziob]', (s) => (s.cards.owned['podwojny-dziob'] = 100)],
+      ['cards.owned[podwojny-dziob]', (s) => (s.cards.owned['podwojny-dziob'] = -1)],
+      ['cards.owned[cios-plusika]', (s) => (s.cards.owned['cios-plusika'] = 2)],
+      ['cards.owned[tarcza-z-lisci]', (s) => delete s.cards.owned['tarcza-z-lisci']],
+      ['progress.merchantDailyCycle', (s) => delete s.progress.merchantDailyCycle],
+      ['progress.merchantDailyCycle', (s) => (s.progress.merchantDailyCycle = 1)],
+      ['progress.merchantDailyCycle', (s) => (s.progress.merchantDailyCycle = -2)],
+      ['progress.dungeon.vines', (s) => (s.progress.dungeon.vines = -1)],
+      ['progress.dungeon.vines', (s) => delete s.progress.dungeon.vines],
+      ['progress.dungeon.heroHp', (s) => (s.progress.dungeon.heroHp = 0)],
+      ['progress.dungeon.heroHp', (s) => (s.progress.dungeon.heroHp = 12.5)],
+      ['progress.dungeon.heroHp', (s) => delete s.progress.dungeon.heroHp],
     ];
     for (const [path, edit] of cases) {
       const problems = problemsAfter(edit);

@@ -81,11 +81,11 @@ export function answerPanel(ctx: UiContext, req: AnswerRequest): Promise<AnswerR
 
     // ── DOM ──
     const root = modal(ctx.layers.panel, `ans-modal ans-kind-${req.kind}`);
-    const panel = h('div', { class: `panel ans-panel is-locked${typed ? ' is-typed' : ''}${req.card ? ' has-card' : ''}` });
+    const panel = h('div', { class: `panel ans-panel is-locked${typed ? ' is-typed' : ''}${req.card ? ' has-card' : ''}${limit !== null ? ' has-ring' : ''}` });
     const titleEl = h('div', { class: 'ans-title' }, h('span', null, req.title));
     const taskView = renderTask(task.text, 'ans-task');
     const help = h('div', { class: 'ans-help is-hidden' });
-    const taskCol = h('div', { class: 'ans-taskcol' }, taskView.el, help);
+    const taskCol = h('div', { class: 'ans-taskcol' }, taskView.el, typed ? h('div', { class: 'ans-typed-hint' }, 'Wpisz wynik') : null, help);
 
     let osBtn: HTMLButtonElement | null = null;
     if (req.numberLineUses > 0) {

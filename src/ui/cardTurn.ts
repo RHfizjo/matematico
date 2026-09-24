@@ -22,8 +22,8 @@ interface Slot {
 
 const CARD_W = 170;
 /** Miejsce zarezerwowane po bokach ręki: serce + tarcza (lewo), odrzucone + „Koniec tury” (prawo). */
-export const SIDE_LEFT = 384;
-export const SIDE_RIGHT = 344;
+export const SIDE_LEFT = 392;
+export const SIDE_RIGHT = 384;
 
 /** Środek ręki (px od lewej) — pośrodku wolnego miejsca między kolumnami. */
 export function handCenter(viewportW: number): number {
@@ -35,11 +35,11 @@ export function handCenter(viewportW: number): number {
 export function fanLayout(n: number, viewportW: number): { x: number; y: number; r: number }[] {
   if (n <= 0) return [];
   const avail = Math.max(CARD_W, viewportW - SIDE_LEFT - SIDE_RIGHT);
-  const spacing = n === 1 ? 0 : clamp((avail - CARD_W) / (n - 1), 92, 178);
+  const spacing = n === 1 ? 0 : clamp((avail - CARD_W) / (n - 1), 92, 174);
   const out: { x: number; y: number; r: number }[] = [];
   for (let i = 0; i < n; i++) {
     const c = i - (n - 1) / 2;
-    out.push({ x: Math.round(c * spacing), y: Math.round(c * c * 7), r: +(c * 3.5).toFixed(2) });
+    out.push({ x: Math.round(c * spacing), y: Math.round(c * c * 6), r: +(c * 2.8).toFixed(2) });
   }
   return out;
 }

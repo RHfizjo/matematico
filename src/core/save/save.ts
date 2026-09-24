@@ -4,6 +4,7 @@ import {
   defaultProgress,
   defaultSettings,
   emptySkillModel,
+  starterCards,
   starterDigits,
   starterEquipment,
 } from './defaults';
@@ -25,7 +26,7 @@ export function safeSeed(seed: number): number {
   return Number.isFinite(seed) ? Math.trunc(seed) >>> 0 : 0;
 }
 
-/** Świeży zapis: Plusik, sprzęt startowy, 19 cyfr, Łąka odblokowana. */
+/** Świeży zapis: Plusik, talia startowa, sprzęt startowy, 19 cyfr, Łąka odblokowana. */
 export function createNewSave(now: number, seed: number): SaveV1 {
   const t = safeTime(now);
   return {
@@ -37,6 +38,7 @@ export function createNewSave(now: number, seed: number): SaveV1 {
     settings: defaultSettings(),
     model: emptySkillModel(),
     inventory: { digits: starterDigits() },
+    cards: starterCards(),
     creatures: [{ id: STARTER_CREATURE, level: 1, fedCycle: -1, caughtAt: t }],
     equipment: starterEquipment(),
     progress: defaultProgress(),

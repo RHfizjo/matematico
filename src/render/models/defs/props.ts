@@ -4,7 +4,7 @@
  * Większość animuje się tylko w idle/open/hit/hide; 'open' i (dla pnącza) 'hit' trzymają stan.
  */
 import type { PropKind } from '../../../game/contracts';
-import { TAU, bump, easeOutBack, easeOutCubic, ramp, squash } from '../anim';
+import { TAU, bump, easeOutBack, easeOutCubic, ramp } from '../anim';
 import * as THREE from 'three';
 import type { ModelBuilder, V3 } from '../builder';
 import type { MotionFn, PoseWriter } from '../rig';
@@ -47,8 +47,9 @@ function rootPath(b: ModelBuilder, pivot: string, pts: readonly V3[], t0: number
 const propHit: MotionFn = (c, w) => {
   if (c.anim === 'hit') {
     const k = bump(c.p, 0, 1);
-    const [sx, sy, sz] = squash(-0.08 * k);
-    w.scale('all', sx, sy, sz);
+    const sy = 1 - 0.08 * k;
+    const sxz = 1 / Math.sqrt(sy);
+    w.scale('all', sxz, sy, sxz);
     w.rot('all', 0, 0, 0.05 * Math.sin(c.p * 30) * (1 - c.p));
   }
 };
@@ -86,12 +87,12 @@ const chest: ModelDef = {
     b.box('all', [1.01, 0.03, 0.71], [0, 0.18, 0], WOOD_DARK, { shade: 1 });
     b.box('all', [1.01, 0.03, 0.71], [0, 0.34, 0], WOOD_DARK, { shade: 1 });
     b.pair('all', 'all', [0.09, 0.52, 0.72], [0.36, 0.26, 0], GOLD, { shade: 0.85 });
-    b.box('glowIn', [0.9, 0.06, 0.6], [0, 0.47, 0], '#ffd54a', { glow: 2.2 });
+    b.box('glowIn', [0.9, 0.06, 0.6], [0, 0.48, 0], '#ffd54a', { glow: 2.2 }); // wyżej niż brzeg skrzyni (bez migotania)
     // wieko
     b.box('lid', [1.02, 0.24, 0.72], [0, 0.62, 0], WOOD_LIGHT, { shade: 0.85 });
     b.box('lid', [0.92, 0.1, 0.6], [0, 0.78, 0], WOOD_LIGHT);
     b.pair('lid', 'lid', [0.09, 0.26, 0.74], [0.36, 0.62, 0], GOLD);
-    b.pair('lid', 'lid', [0.09, 0.1, 0.62], [0.36, 0.78, 0], GOLD);
+    b.pair('lid', 'lid', [0.09, 0.11, 0.62], [0.36, 0.785, 0], GOLD); // okucia wystają ponad wieko (widać je z góry)
     b.box('lid', [0.18, 0.22, 0.07], [0, 0.52, 0.37], GOLD, { glow: 0.7 });
     b.box('lid', [0.06, 0.08, 0.02], [0, 0.5, 0.41], '#6b4a1a', { shade: 1 });
   },
@@ -137,8 +138,9 @@ const gate: ModelDef = {
     // korzenie starego dębu oplatające kamień (łańcuchy kostek wzdłuż krzywych)
     const R = '#7a5230';
     const R2 = '#8f6a3f';
-    rootPath(b, 'all', [[2.05, 0, 0.52], [1.8, 0.8, 0.52], [1.58, 1.6, 0.53], [1.72, 2.4, 0.54], [1.55, 3.1, 0.56], [1.0, 3.62, 0.56], [0.45, 3.78, 0.52]], 0.3, 0.1, R);
-    rootPath(b, 'all', [[-2.05, 0, 0.48], [-1.75, 0.9, 0.52], [-1.25, 1.7, 0.53], [-1.52, 2.5, 0.54], [-1.3, 3.2, 0.56], [-0.72, 3.78, 0.52]], 0.3, 0.1, R2);
+    // (korzenie omijają gniazda run: idą zewnętrzną krawędzią filarów i dopiero nad nadprożem do środka)
+    rootPath(b, 'all', [[2.05, 0, 0.52], [1.8, 0.8, 0.52], [1.58, 1.6, 0.53], [1.72, 2.4, 0.54], [1.66, 2.95, 0.56], [1.76, 3.5, 0.56], [1.45, 3.9, 0.54], [0.8, 3.98, 0.5]], 0.3, 0.1, R);
+    rootPath(b, 'all', [[-2.05, 0, 0.48], [-1.75, 0.9, 0.52], [-1.25, 1.7, 0.53], [-1.52, 2.5, 0.54], [-1.66, 3.05, 0.56], [-1.74, 3.55, 0.56], [-1.3, 3.92, 0.54], [-0.72, 3.98, 0.5]], 0.3, 0.1, R2);
     rootPath(b, 'all', [[-2.0, 3.86, -0.05], [-1.0, 3.96, 0.12], [0, 3.9, 0.22], [1.0, 3.96, 0.1], [2.0, 3.84, -0.1]], 0.26, 0.2, R);
     rootPath(b, 'all', [[1.58, 1.6, 0.53], [1.2, 1.3, 0.55], [1.0, 1.0, 0.55]], 0.12, 0.06, R2);
     rootPath(b, 'all', [[-1.25, 1.7, 0.53], [-1.05, 2.2, 0.55], [-1.1, 2.6, 0.55]], 0.12, 0.06, R);
@@ -249,6 +251,7 @@ const portal: ModelDef = {
 };
 
 // ───────────────────────────── ognisko ─────────────────────────────
+const FLAMES = ['f0', 'f1', 'f2', 'f3', 'f4'] as const;
 const campfire: ModelDef = {
   height: 0.9,
   radius: 0.65,
@@ -281,15 +284,16 @@ const campfire: ModelDef = {
   motions: () => [
     (c, w) => {
       const t = c.time;
-      ['f0', 'f1', 'f2', 'f3', 'f4'].forEach((f, i) => {
+      for (let i = 0; i < FLAMES.length; i++) {
+        const f = FLAMES[i] ?? 'f0';
         const n = Math.sin(t * (9 + i * 2.3) + i * 1.7) * 0.5 + Math.sin(t * (14 + i) + i) * 0.5;
         w.scale(f, 1 + 0.1 * n, 1 + 0.28 * n, 1 + 0.1 * n);
         w.rot(f, 0, t * (1 + i * 0.3), 0.06 * n);
         if (i === 4) w.pos(f, 0.05 * Math.sin(t * 5), 0.35 * ((t * 1.1) % 1), 0.03 * Math.cos(t * 4));
-      });
+      }
       if (c.anim === 'sleep' || c.anim === 'hide') {
         const k = c.anim === 'hide' ? Math.max(0.0001, 1 - c.p) : 0.4;
-        for (const f of ['f0', 'f1', 'f2', 'f3', 'f4']) w.scale(f, k, k, k);
+        for (const f of FLAMES) w.scale(f, k, k, k);
       }
     },
     propHit,
@@ -388,11 +392,13 @@ const board: ModelDef = {
     b.box('all', [2.1, 1.35, 0.1], [0, 1.45, 0], WOOD, { shade: 0.85 });
     b.box('all', [1.86, 1.12, 0.03], [0, 1.45, 0.06], '#f6e7c1', { shade: 1 });
     b.box('all', [2.3, 0.12, 0.34], [0, 2.18, 0.04], '#e0584f');
-    b.box('all', [2.1, 0.1, 0.3], [0, 2.1, 0.04], '#c8453d');
+    b.box('all', [2.16, 0.1, 0.3], [0, 2.1, 0.04], '#c8453d');
     // mapa
-    const z = 0.08;
+    // Każda kolejna warstwa mapy odrobinę przed poprzednią — inaczej płaskie kafelki migoczą (z-fighting).
+    let z = 0.08;
     const M = (w: number, h: number, x: number, y: number, col: string, o: { rot?: number; glow?: number } = {}): void => {
       b.box('all', [w, h, 0.012], [x, 1.45 + y, z], col, { shade: 1, rot: [0, 0, o.rot ?? 0], glow: o.glow });
+      z += 0.003;
     };
     M(1.7, 1.0, 0, 0, '#8fd3f5');
     M(0.8, 0.5, -0.35, 0.15, '#7ccf5a');
@@ -410,7 +416,7 @@ const board: ModelDef = {
     M(0.12, 0.12, -0.62, -0.1, GOLD, { rot: 0.785, glow: 1.2 });
     // pinezki
     for (const [px, py] of [[-0.85, 0.5], [0.85, 0.5], [-0.85, -0.5], [0.85, -0.5]] as const) {
-      b.box('all', [0.06, 0.06, 0.04], [px, 1.45 + py, 0.1], '#ff5d7a');
+      b.box('all', [0.06, 0.06, 0.04], [px, 1.45 + py, z + 0.02], '#ff5d7a');
     }
   },
   motions: () => [propHit, propShowHide],
@@ -452,7 +458,7 @@ const vine: ModelDef = {
     const V2 = '#256f2e';
     const THORN = '#b8325a';
     b.box('all', [0.7, 0.12, 0.6], [0, 0.06, 0], DIRT);
-    b.box('all', [0.3, 0.1, 0.24], [0.2, 0.1, 0.1], '#7a5236');
+    b.box('all', [0.3, 0.1, 0.24], [0.17, 0.1, 0.1], '#7a5236');
     b.pivot('v1', 'all', [0, 0.1, 0]);
     b.pivot('v2', 'v1', [0, 0.62, 0.05]);
     b.pivot('v3', 'v2', [0, 1.1, 0.12]);

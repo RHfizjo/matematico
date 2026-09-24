@@ -1,4 +1,4 @@
-// Dane gry: stworki, brainroty, sprzęt, krainy (GDD 4, 13).
+// Dane gry: stworki, brainroty, sprzęt, krainy, karty (GDD 4, 13).
 export { CREATURES, STARTER_CREATURE } from './creatures';
 export { ENEMIES, MEADOW_ENEMIES, MEADOW_BOSS } from './enemies';
 export {
@@ -11,3 +11,4 @@ export {
 export type { ItemSource } from './items';
 export { LANDS, LAND_ORDER } from './lands';
 export type { LandDef } from './lands';
+export { CARDS, CARD_GRANTS } from './cards';

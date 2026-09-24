@@ -137,10 +137,11 @@ function round2(v: number): number {
 }
 
 /**
- * Limit 60 fps na ekranach 120 Hz: pomijamy wywołania rAF, które przychodzą szybciej niż ~15,5 ms
- * od ostatniej wyrenderowanej klatki.
+ * Limit 60 fps na ekranach 120 Hz: pomijamy wywołania rAF, które przychodzą szybciej niż 12,5 ms
+ * (¾ klatki 60 Hz) od ostatniej wyrenderowanej klatki. Próg z zapasem: przy 120 Hz co drugie wywołanie
+ * (8,3 ms) jest pomijane, a przy 60 Hz drobne wahania znaczników czasu (np. 15,4 ms) nie gubią klatek.
  */
-export function shouldRenderFrame(now: number, lastRendered: number, minIntervalMs = 15.5): boolean {
+export function shouldRenderFrame(now: number, lastRendered: number, minIntervalMs = 12.5): boolean {
   return now - lastRendered >= minIntervalMs;
 }
 

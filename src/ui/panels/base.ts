@@ -73,7 +73,7 @@ export function treasuryPanel(ctx: UiContext, digits: Digits): Promise<void> {
     theme: 'treasury',
     title: 'Skarbiec',
     icon: '💰',
-    subtitle: 'Cyfry do bramy i kuźni',
+    subtitle: 'Cyfry do bramy, kuźni i handlu',
     onClose: () => {
       done.resolve();
       void shell.close();
@@ -114,7 +114,7 @@ export function treasuryPanel(ctx: UiContext, digits: Digits): Promise<void> {
       'p',
       { class: 'tr-note' },
       h('span', { attrs: { 'aria-hidden': 'true' } }, '💡 '),
-      'Cyfry dają stworki, skrzynie i brainglamy. Wydajesz je w bramie i w kuźni.',
+      'Cyfry dają stworki, skrzynie i brainglamy. Wydajesz je w bramie, w kuźni i u Handlarza.',
     ),
   );
   return done.promise;
@@ -285,26 +285,36 @@ export function expeditionsPanel(ctx: UiContext, lands: LandCard[]): Promise<Lan
       { class: `ex-scene ex-scene-${l.id}` },
       h('span', { class: 'ex-scene-ic', attrs: { 'aria-hidden': 'true' } }, LAND_ICON[l.id]),
       l.bossDefeated ? h('div', { class: 'ex-boss' }, '👑 Boss pokonany') : null,
-      l.unlocked ? null : h('div', { class: 'ex-lock' }, lockIcon(38)),
     );
+    const soon = h('div', { class: 'ex-soon' }, 'Wkrótce');
     const card = h(
       'article',
-      { class: `ex-card${l.unlocked ? ' is-open' : ' is-locked'}`, attrs: { role: 'button', 'aria-disabled': String(!l.unlocked) } },
+      // Bez aria-disabled: onTap ignoruje takie elementy, a zablokowana kraina ma odpowiadać na dotyk.
+      { class: `ex-card${l.unlocked ? ' is-open' : ' is-locked'}`, attrs: { role: 'button', 'aria-label': l.unlocked ? l.name : `${l.name} — wkrótce` } },
       scene,
+      // Kłódka poza filtrem szarości sceny — ma świecić na złoto.
+      l.unlocked ? null : h('div', { class: 'ex-lock' }, lockIcon(38)),
       h('h3', { class: 'ex-name' }, l.name),
       h('div', { class: 'ex-sub' }, l.subtitle),
-      l.unlocked
-        ? h('div', { class: 'btn btn-good btn-big ex-go' }, 'Wyrusz!')
-        : h('div', { class: 'ex-soon' }, 'Wkrótce'),
+      l.unlocked ? h('div', { class: 'btn btn-good btn-big ex-go' }, 'Wyrusz!') : soon,
     );
-    if (l.unlocked) {
-      shell.onDispose(
-        onTap(card, () => {
+    shell.onDispose(
+      onTap(card, () => {
+        if (l.unlocked) {
           ctx.sfx('whoosh');
           finish(l.id);
-        }),
-      );
-    }
+          return;
+        }
+        // Zablokowana kraina: krótka, życzliwa odpowiedź zamiast ciszy.
+        ctx.sfx('tap');
+        card.classList.remove('pn-shake');
+        void card.offsetWidth;
+        card.classList.add('pn-shake');
+        soon.textContent = '🔒 Jeszcze śpi';
+        window.clearTimeout(Number(soon.dataset.t ?? 0));
+        soon.dataset.t = String(window.setTimeout(() => (soon.textContent = 'Wkrótce'), 1600));
+      }),
+    );
     row.append(card);
   }
   shell.body.classList.add('ex-body');

@@ -81,10 +81,10 @@ export const hero: ModelDef = {
 
     // Głowa
     b.box('head', [0.62, 0.58, 0.56], [0, 1.4, 0], SKIN, { shade: 0.88 });
-    b.pair('head', 'head', [0.06, 0.13, 0.11], [0.33, 1.38, 0], SKIN_DARK);
+    b.pair('head', 'head', [0.06, 0.13, 0.11], [0.33, 1.36, 0], SKIN_DARK); // uszy (poniżej bocznych włosów — bez migotania)
     // Włosy: czapka, tył, boki, grzywka, sterczący kosmyk
     b.box('head', [0.66, 0.14, 0.6], [0, 1.72, -0.01], HAIR, { shade: 0.9 });
-    b.box('head', [0.66, 0.5, 0.12], [0, 1.45, -0.25], HAIR_DARK);
+    b.box('head', [0.645, 0.5, 0.12], [0, 1.45, -0.26], HAIR_DARK);
     b.pair('head', 'head', [0.06, 0.26, 0.5], [0.33, 1.56, -0.03], HAIR);
     b.box('head', [0.66, 0.1, 0.1], [0, 1.64, 0.26], HAIR);
     b.box('head', [0.22, 0.09, 0.08], [0.17, 1.56, 0.27], HAIR);

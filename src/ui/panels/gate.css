@@ -83,7 +83,9 @@
 .gate-track-hint { display: flex; align-items: center; gap: 12px; color: #b9c3db; font: 800 var(--fs-m) / 1.2 var(--font); pointer-events: none; }
 .gate-track-hint-ic { font-size: 34px; line-height: 1; }
 .gate-track .on-track { cursor: grab; }
-.gate-track .pn-digit.join { margin-left: -9px; }
+/* Sklejone cyfry (jedna liczba): kafelki stykają się ramkami, wewnętrzne rogi są proste. */
+.gate-track .pn-digit.join { margin-left: -16px; border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+.gate-track .pn-digit.join-next { border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
 .gate-caret {
   flex: 0 0 auto; width: 8px; align-self: stretch; margin: 4px -4px; border-radius: 4px;
   background: #ffd23f; box-shadow: 0 0 16px #ffd23f; animation: gate-blink 700ms ease-in-out infinite alternate;
@@ -101,7 +103,8 @@
 .gate-preview.is-unknown .gate-preview-v { color: #b3b9c7; }
 .gate-preview.is-hit { background: #dcffe8; color: #0f8a41; box-shadow: 0 0 0 4px #3ccf6e, 0 0 26px rgba(60, 207, 110, 0.6); }
 .gate-preview.is-hit .gate-preview-eq { color: #0f8a41; }
-.btn.gate-clear { min-height: 52px; font-size: 20px; padding: 6px 12px; }
+.btn.gate-clear { min-height: 52px; font-size: 20px; padding: 6px 12px; background: #fffaf0; }
+.btn.gate-clear:disabled { filter: none; opacity: 0.55; }
 
 .gate-stage { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
 

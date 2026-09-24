@@ -72,6 +72,30 @@ describe('frame cap', () => {
     expect(rendered).toBe(60);
   });
 
+  it('tolerates timestamp jitter (±1.5 ms) without dropping 60 Hz frames or exceeding 60 fps on 120 Hz', () => {
+    const jitter = (i: number): number => ((i * 7919) % 31) / 10 - 1.5;
+    let last = 0;
+    let rendered = 0;
+    for (let i = 1; i <= 600; i++) {
+      const now = i * (1000 / 60) + jitter(i);
+      if (shouldRenderFrame(now, last)) {
+        last = now;
+        rendered++;
+      }
+    }
+    expect(rendered).toBe(600);
+    last = 0;
+    rendered = 0;
+    for (let i = 1; i <= 1200; i++) {
+      const now = i * (1000 / 120) + jitter(i) * 0.5;
+      if (shouldRenderFrame(now, last)) {
+        last = now;
+        rendered++;
+      }
+    }
+    expect(rendered).toBe(600);
+  });
+
   it('benchmark thresholds', () => {
     expect(pickQualityFromBenchmark(5)).toBe('high');
     expect(pickQualityFromBenchmark(12)).toBe('medium');

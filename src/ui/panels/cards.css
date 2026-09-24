@@ -13,11 +13,12 @@
 .cc-pill-spare { background: #fff1dc; }
 .cc-scroll { flex: 1 1 auto; padding: 28px 28px 20px; display: flex; }
 .cc-grid {
-  margin: auto; width: 100%; display: grid; grid-template-columns: repeat(auto-fill, 164px);
-  justify-content: center; gap: 30px 26px;
+  margin: auto; width: 100%; display: grid; grid-template-columns: repeat(auto-fill, 172px);
+  justify-content: center; gap: 26px 22px;
 }
 .cc-cell { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.cc-card-wrap { position: relative; filter: drop-shadow(0 10px 8px rgba(60, 30, 5, 0.35)); }
+/* Karty w kolekcji powiększone (małe karty są czytelne dopiero ~1,3×) — nazwy dla 8-latka. */
+.cc-card-wrap { position: relative; zoom: 1.3; filter: drop-shadow(0 8px 6px rgba(60, 30, 5, 0.35)); }
 .cc-card-wrap .card { cursor: pointer; }
 .cc-card-wrap .card.is-pressed { transform: scale(0.96); }
 .cc-cell.is-missing .cc-card-wrap { opacity: 0.6; }
@@ -82,7 +83,7 @@
 .mc-daily .mc-kind { background: #ffe38a; }
 .mc-threeForOne .mc-kind { background: #d9f0ff; }
 .mc-sell .mc-kind { background: #ffe7c2; }
-.mc-card { filter: drop-shadow(0 6px 6px rgba(60, 30, 5, 0.25)); }
+.mc-card { zoom: 0.86; filter: drop-shadow(0 6px 6px rgba(60, 30, 5, 0.25)); }
 .mc-info { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .mc-text { font: 900 21px/1.2 var(--font); color: var(--ink); }
 .mc-chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -104,3 +105,6 @@
 /* Małe karty w kolekcji i u handlarza: trochę wyższe, żeby znaczek siły nie zasłaniał nazwy. */
 .cc-card-wrap .card.card-small, .mc-card .card.card-small { height: 184px; }
 .cc-card-wrap .card-small .card-power, .mc-card .card-small .card-power { top: 28%; font-size: 21px; padding: 4px 7px; }
+/* Nazwa i rodzaj zawijane do środka (np. „WIELKA TARCZA”, „ATAK + TARCZA”). */
+.cc-card-wrap .card-small .card-name, .mc-card .card-small .card-name { text-wrap: balance; }
+.cc-card-wrap .card-small .card-kind, .mc-card .card-small .card-kind { text-align: center; font-size: 11px; letter-spacing: 0.02em; line-height: 1.15; }

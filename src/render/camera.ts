@@ -35,6 +35,7 @@ export class CameraRig {
   private shakeDur = 0;
   private snapNext = true;
   private readonly offset = new THREE.Vector3();
+  private readonly axes = { right: new THREE.Vector2(), up: new THREE.Vector2() };
 
   constructor(aspect: number) {
     this.camera = new THREE.PerspectiveCamera(CAMERA_FOV, aspect, 0.3, 260);
@@ -63,12 +64,11 @@ export class CameraRig {
     this.shakeTime = this.shakeDur;
   }
 
-  /** Kierunek „w prawo na ekranie” i „w górę ekranu” na płaszczyźnie XZ (bieżące yaw). */
-  screenAxes(): { right: THREE.Vector2; up: THREE.Vector2 } {
-    return {
-      right: new THREE.Vector2(Math.cos(this.yaw), -Math.sin(this.yaw)),
-      up: new THREE.Vector2(-Math.sin(this.yaw), -Math.cos(this.yaw)),
-    };
+  /** Kierunek „w prawo na ekranie” i „w górę ekranu” na płaszczyźnie XZ (bieżące yaw). Wektory współdzielone — nie przechowywać. */
+  screenAxes(): { readonly right: THREE.Vector2; readonly up: THREE.Vector2 } {
+    this.axes.right.set(Math.cos(this.yaw), -Math.sin(this.yaw));
+    this.axes.up.set(-Math.sin(this.yaw), -Math.cos(this.yaw));
+    return this.axes;
   }
 
   update(dt: number, ents: EntityLookup): void {
@@ -88,7 +88,7 @@ export class CameraRig {
         const a = ents.position(m.a);
         const b = ents.position(m.b);
         if (a && b) {
-          const mid = a.clone().add(b).multiplyScalar(0.5);
+          const mid = this.offset.copy(a).add(b).multiplyScalar(0.5);
           const sep = Math.hypot(a.x - b.x, a.z - b.z);
           const hb = Math.max(ents.height(m.a), ents.height(m.b));
           // Postacie w górnej-środkowej części kadru (na dole ekranu jest ręka kart).

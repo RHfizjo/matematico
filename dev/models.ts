@@ -117,6 +117,8 @@ const qs = new URLSearchParams(location.search);
 const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: Number(qs.get('msaa') ?? '4') });
 // licznik czasu klatki (diagnostyka zrzutów w SwiftShader)
 let frameMs = 0;
+/** Liczba klatek do wyrenderowania mimo pauzy (po zmianie stanu / rozmiaru). */
+let dirty = 2;
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new BloomEffect({ luminanceThreshold: 1.0, luminanceSmoothing: 0.2, intensity: 1.0, mipmapBlur: true, radius: 0.6 });
 const params = new URLSearchParams(location.search);
@@ -132,6 +134,7 @@ function resize(): void {
   composer.setSize(w, h);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
+  dirty = 2;
 }
 window.addEventListener('resize', resize);
 resize();
@@ -169,7 +172,7 @@ function makeLabel(id: ModelId): HTMLDivElement {
 // układ galerii: rzędy
 const LAYOUT: { z: number; ids: ModelId[]; gap: number }[] = [
   { z: 5.2, gap: 2.3, ids: ['hero', 'creature:plusik', 'creature:dopelniak', 'creature:blizniak', 'creature:koniczynek', 'npc:kartonini'] },
-  { z: 1.6, gap: 2.5, ids: ['enemy:slimakorro', 'glam:slimakorro', 'enemy:trzmielini', 'glam:trzmielini', 'enemy:grzybello', 'glam:grzybello'] },
+  { z: 1.6, gap: 3.1, ids: ['enemy:slimakorro', 'glam:slimakorro', 'enemy:trzmielini', 'glam:trzmielini', 'enemy:grzybello', 'glam:grzybello'] },
   {
     z: -2.4,
     gap: 2.05,
@@ -257,6 +260,7 @@ function stageFocus(h: number, x = 0): THREE.Vector3 {
 
 function demo(state: string): string {
   paused = false;
+  dirty = 2;
   orbit = 0;
   clearStage();
   for (const it of items) it.rig.setHighlight(false);
@@ -294,7 +298,8 @@ function demo(state: string): string {
     if (hl) it.rig.setHighlight(true);
     const h = it.rig.height;
     const big = h > 2.5;
-    lookFrom(stageFocus(h * 0.48), Math.max(2.4, h * 1.75 + it.rig.radius * 1.9), big ? 22 : 18, 28);
+    // odległość: wysokość ORAZ szerokość (płaskie, szerokie rekwizyty jak podium czy nora nie mogą wychodzić poza kadr)
+    lookFrom(stageFocus(h * 0.48), Math.max(2.4, h * 1.75 + it.rig.radius * 1.9, it.rig.radius * 3.8), big ? 22 : 18, 28);
     aimSun(stageFocus(0), Math.max(4, h * 1.4));
     let label = `${NAMES[id] ?? id}`;
     if (animPart) {
@@ -362,7 +367,7 @@ function demo(state: string): string {
     const to = addToStage(`glam:${sp}` as ModelId, 0, 0, false);
     to.rig.root.scale.setScalar(0);
     const h = Math.max(from.rig.height, to.rig.height);
-    lookFrom(stageFocus(h * 0.55), h * 2.1 + 3, 16, 20);
+    lookFrom(stageFocus(h * 0.6), h * 2.6 + 4.2, 16, 20);
     aimSun(stageFocus(0), h * 2 + 2);
     const t0 = performance.now();
     void fx.playTransform({ scene, particles, from: from.rig, to: to.rig }).then(() => {
@@ -459,9 +464,13 @@ function frame(now: number): void {
       camera.lookAt(camTarget);
     }
   }
-  const t0 = performance.now();
-  composer.render(dt);
-  frameMs = performance.now() - t0;
+  // Zatrzymany czas: renderujemy tylko raz po zmianie (oszczędza CPU przy zrzutach w SwiftShader).
+  if (!paused || dirty > 0) {
+    const t0 = performance.now();
+    composer.render(dt);
+    frameMs = performance.now() - t0;
+    if (dirty > 0) dirty--;
+  }
   const wnd = window as unknown as { __frameMs: number; __frames: number };
   wnd.__frameMs = frameMs;
   wnd.__frames = (wnd.__frames ?? 0) + 1;

@@ -2,6 +2,8 @@
 export {
   MAX_STAGE,
   STAGE_UP_MASTERY,
+  START_STAGE_MAX,
+  START_EVIDENCE_MIN,
   FINAL_FALLBACK,
   clampStage,
   stageCategories,
@@ -11,8 +13,9 @@ export {
   stageMastery,
   shouldStageUp,
   startingStageFromMastery,
+  stageOwnCategories,
 } from './progression';
-export type { PoolAction, ActionCategoriesArgs, StageMasteryArgs } from './progression';
+export type { PoolAction, ActionCategoriesArgs, StageMasteryArgs, StartingStageArgs } from './progression';
 export {
   MEADOW_ROOMS,
   MEADOW_ROOM_ORDER,

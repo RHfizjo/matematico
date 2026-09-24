@@ -4,25 +4,37 @@ import { createRng } from './rng';
 import { generateTask } from './math';
 import { createCalibration } from './adaptive';
 import { countDigits, digitsFromList, emptyDigits, gateTokensFromText, gateTokensOf, startingDigits } from './economy';
-import { createNewSave, deserializeSave, serializeSave } from './save';
+import { createNewSave, deserializeSave, isCardId, migrateSave, serializeSave, validateSave } from './save';
+import { findForgePayment } from './economy';
 import {
   FEED_RULE,
+  acceptMerchant,
   answerTask,
   applyGateGift,
+  backfillCards,
   beginPlaySession,
   buildAttempt,
   catchCreature,
+  clearRoom,
+  collectionOf,
   completeFeeding,
+  currentRoomId,
+  deckOf,
   defeatBoss,
   feedCreature,
   finishCalibration,
+  finishDungeon,
   grantItem,
   helps,
   heroStats,
   lootChest,
+  offersFor,
   openGate,
+  recordBattleProgress,
+  restAtCampfire,
   returnToBase,
   stageCheck,
+  startDungeonRun,
   transformEnemy,
   trialStatus,
   unlockedActionsOf,
@@ -30,6 +42,7 @@ import {
   type AnswerInput,
   type GameDefs,
 } from './game';
+import { TEST_CARDS, TEST_CARD_GRANTS, TEST_CARD_IDS } from './merchant/testkit';
 import * as core from './index';
 
 // Kopie danych z content/ (core nie importuje content/).
@@ -80,6 +93,8 @@ const DEFS: GameDefs = {
     'zlota-siec': item({ id: 'zlota-siec', slot: 'net', help: { kind: 'extraCatchTry', amount: 1, appliesTo: 'catch' } }),
     'amulet-drugiej-szansy': item({ id: 'amulet-drugiej-szansy', slot: 'amulet', help: { kind: 'retry', amount: 1, appliesTo: 'all' } }),
   },
+  cards: TEST_CARDS,
+  grants: TEST_CARD_GRANTS,
 };
 
 const T0 = 1_700_000_000_000;
@@ -325,19 +340,19 @@ describe('catchCreature', () => {
 describe('transformEnemy', () => {
   it('pierwsza przemiana: Galeria + prezent 3 cyfr (2 z 1..5, 1 z 6..9); kolejne: licznik', () => {
     const s = newSave();
-    const r = transformEnemy(s, 'slimakorro', T0 + 7, createRng(1));
+    const r = transformEnemy(s, 'slimakorro', T0 + 7, createRng(1), DEFS);
     expect(r.firstTime).toBe(true);
     expect(r.gift).toHaveLength(3);
     expect(r.gift.filter((d) => d >= 6).length).toBe(1);
     expect(s.progress.glams.slimakorro).toEqual({ enemyId: 'slimakorro', count: 1, firstAt: T0 + 7 });
     expect(countDigits(s.inventory.digits)).toBe(22);
-    expect(transformEnemy(s, 'slimakorro', T0 + 9, createRng(2))).toEqual({ firstTime: false, gift: [] });
+    expect(transformEnemy(s, 'slimakorro', T0 + 9, createRng(2), DEFS)).toEqual({ firstTime: false, gift: [], cardGained: 'lepka-kokarda' });
     expect(s.progress.glams.slimakorro).toEqual({ enemyId: 'slimakorro', count: 2, firstAt: T0 + 7 });
     expect(countDigits(s.inventory.digits)).toBe(22);
   });
 
   it('nieznany brainrot → wyjątek', () => {
-    expect(() => transformEnemy(newSave(), 'godzilla', T0, createRng(1))).toThrow(RangeError);
+    expect(() => transformEnemy(newSave(), 'godzilla', T0, createRng(1), DEFS)).toThrow(RangeError);
   });
 });
 
@@ -538,10 +553,385 @@ describe('sesja i zapis', () => {
     catchCreature(s, 'dopelniak', T0, rng, DEFS);
     completeFeeding(s, 'plusik', rng, DEFS);
     returnToBase(s, rng, T0 + 9000, DEFS);
-    transformEnemy(s, 'trzmielini', T0, rng);
+    transformEnemy(s, 'trzmielini', T0, rng, DEFS);
     openGate(s, gateTokensOf(6, '×', 9), { target: 54, gift: emptyDigits(), ops: ['+', '×'] });
     defeatBoss(s, 'meadow', ['zlota-siec'], rng, DEFS);
+    catchCreature(s, 'blizniak', T0, rng, DEFS);
+    acceptMerchant(s, 'sell:cios-plusika', undefined, rng, DEFS);
+    startDungeonRun(s, rng);
+    recordBattleProgress(s, 'entry:slimakorro', { czar: 11, phase: 1, vines: 0, heroHp: 77, heroMaxHp: 100 });
+    clearRoom(s);
+    expect(validateSave(s)).toEqual([]);
     expect(roundTrip(s)).toEqual(s);
+  });
+});
+
+describe('karty: łapanie i przemiana (GDD 8, 7.6, 13.5)', () => {
+  const owned = (s: SaveV1, id: string): number => s.cards.owned[id] ?? 0;
+
+  it('nowy stworek → onCatch kopii; awans na poz. 2 → onLevelUp; poz. 3 i dalej → bez kopii', () => {
+    const s = newSave();
+    expect(catchCreature(s, 'dopelniak', T0, createRng(1), DEFS).cardsGained).toEqual([{ cardId: 'tarcza-dopelniaka', count: 2 }]);
+    expect(owned(s, 'tarcza-dopelniaka')).toBe(2);
+    expect(catchCreature(s, 'dopelniak', T0, createRng(2), DEFS)).toMatchObject({
+      level: 2,
+      cardsGained: [{ cardId: 'tarcza-dopelniaka', count: 1 }],
+    });
+    expect(owned(s, 'tarcza-dopelniaka')).toBe(3);
+    expect(catchCreature(s, 'dopelniak', T0, createRng(3), DEFS)).toMatchObject({ level: 3, leveledUp: true, cardsGained: [] });
+    expect(catchCreature(s, 'dopelniak', T0, createRng(4), DEFS)).toMatchObject({ level: 3, leveledUp: false, cardsGained: [] });
+    expect(owned(s, 'tarcza-dopelniaka')).toBe(3);
+  });
+
+  it('Bliźniak 2 kopie Podwójnego dzioba, Koniczynek 1 Koniczynowej tarczy; Plusik (start) awansuje: +1 Cios', () => {
+    const s = newSave();
+    expect(catchCreature(s, 'blizniak', T0, createRng(1), DEFS).cardsGained).toEqual([{ cardId: 'podwojny-dziob', count: 2 }]);
+    expect(catchCreature(s, 'koniczynek', T0, createRng(1), DEFS).cardsGained).toEqual([{ cardId: 'koniczynowa-tarcza', count: 1 }]);
+    expect(catchCreature(s, 'plusik', T0, createRng(1), DEFS)).toMatchObject({
+      isNew: false,
+      level: 2,
+      cardsGained: [{ cardId: 'cios-plusika', count: 1 }],
+    });
+    expect(s.cards.owned).toEqual({ 'cios-plusika': 6, 'tarcza-z-lisci': 3, 'podwojny-dziob': 2, 'koniczynowa-tarcza': 1 });
+    expect(validateSave(s)).toEqual([]);
+  });
+
+  it('stworek bez karty w treści → brak kart; karta spoza treści → brak kart', () => {
+    const s = newSave();
+    const noGrants: GameDefs = { ...DEFS, grants: { ...TEST_CARD_GRANTS, creatures: {} } };
+    expect(catchCreature(s, 'dopelniak', T0, createRng(1), noGrants).cardsGained).toEqual([]);
+    const unknownCard: GameDefs = {
+      ...DEFS,
+      grants: { ...TEST_CARD_GRANTS, creatures: { blizniak: { cardId: 'smocza-karta', onCatch: 2, onLevelUp: 1 } } },
+    };
+    expect(catchCreature(s, 'blizniak', T0, createRng(1), unknownCard).cardsGained).toEqual([]);
+    expect(s.cards.owned).toEqual({ 'cios-plusika': 5, 'tarcza-z-lisci': 3 });
+  });
+
+  it('limit 99 kopii jednej karty', () => {
+    const s = newSave();
+    s.cards.owned['tarcza-dopelniaka'] = 98;
+    expect(catchCreature(s, 'dopelniak', T0, createRng(1), DEFS).cardsGained).toEqual([{ cardId: 'tarcza-dopelniaka', count: 1 }]);
+    expect(owned(s, 'tarcza-dopelniaka')).toBe(99);
+    s.cards.owned['lepka-kokarda'] = 99;
+    expect(transformEnemy(s, 'slimakorro', T0, createRng(1), DEFS).cardGained).toBeNull();
+    expect(owned(s, 'lepka-kokarda')).toBe(99);
+    expect(validateSave(s)).toEqual([]);
+  });
+
+  it('przemiana: kopia karty brainglama przy KAŻDEJ przemianie (także boss → legendarna)', () => {
+    const s = newSave();
+    const pairs: [string, string][] = [
+      ['slimakorro', 'lepka-kokarda'],
+      ['trzmielini', 'brokatowy-roj'],
+      ['grzybello', 'perlowy-zdroj'],
+      ['kosiarrini', 'krolewski-bukiet'],
+    ];
+    for (const [enemy, cardId] of pairs) {
+      expect(transformEnemy(s, enemy, T0, createRng(1), DEFS)).toMatchObject({ firstTime: true, cardGained: cardId });
+      expect(transformEnemy(s, enemy, T0, createRng(2), DEFS)).toEqual({ firstTime: false, gift: [], cardGained: cardId });
+      expect(owned(s, cardId)).toBe(2);
+    }
+    const noGlams: GameDefs = { ...DEFS, grants: { ...TEST_CARD_GRANTS, glams: {} } };
+    expect(transformEnemy(s, 'slimakorro', T0, createRng(3), noGlams).cardGained).toBeNull();
+    expect(owned(s, 'lepka-kokarda')).toBe(2);
+    expect(s.progress.glams.slimakorro?.count).toBe(3);
+  });
+
+  it('wszystkie karty z danych testowych (kopia content/cards.ts) są znane formatowi zapisu', () => {
+    expect(TEST_CARD_IDS.filter((id) => !isCardId(id))).toEqual([]);
+    for (const g of Object.values(TEST_CARD_GRANTS.creatures)) expect(isCardId(g.cardId)).toBe(true);
+    for (const id of Object.values(TEST_CARD_GRANTS.glams)) expect(isCardId(id)).toBe(true);
+    expect(TEST_CARD_GRANTS.starter).toEqual(newSave().cards.owned);
+  });
+});
+
+describe('karty: talia i kolekcja', () => {
+  it('talia startowa: 3 × Cios Plusika + 3 × Tarcza z liści (maks. 3 kopie karty)', () => {
+    const s = newSave();
+    expect(deckOf(s, DEFS)).toEqual(['cios-plusika', 'cios-plusika', 'cios-plusika', 'tarcza-z-lisci', 'tarcza-z-lisci', 'tarcza-z-lisci']);
+  });
+
+  it('talia maks. 15 kart, maks. 3 kopie; kolekcja: posiadane, w talii, zapas', () => {
+    const s = newSave();
+    for (const id of TEST_CARD_IDS) s.cards.owned[id] = 5;
+    const deck = deckOf(s, DEFS);
+    expect(deck).toHaveLength(15);
+    for (const id of TEST_CARD_IDS) expect(deck.filter((d) => d === id).length).toBeLessThanOrEqual(3);
+    const col = collectionOf(s, DEFS);
+    expect(col.map((c) => c.cardId)).toEqual(TEST_CARD_IDS);
+    expect(col.reduce((n, c) => n + c.inDeck, 0)).toBe(15);
+    for (const c of col) {
+      expect(c.owned).toBe(5);
+      expect(c.spare).toBe(2);
+      expect(c.inDeck).toBe(deck.filter((d) => d === c.cardId).length);
+    }
+  });
+
+  it('kolekcja świeżego zapisu: brakujące karty z owned = 0', () => {
+    const col = collectionOf(newSave(), DEFS);
+    expect(col).toHaveLength(9);
+    expect(col[0]).toEqual({ cardId: 'cios-plusika', owned: 5, inDeck: 3, spare: 2 });
+    expect(col[1]).toEqual({ cardId: 'tarcza-z-lisci', owned: 3, inDeck: 3, spare: 0 });
+    expect(col.slice(2).every((c) => c.owned === 0 && c.inDeck === 0 && c.spare === 0)).toBe(true);
+  });
+
+  it('backfillCards: zapis sprzed kart dostaje karty złapanych stworków i brainglamów; idempotentne', () => {
+    const raw = JSON.parse(serializeSave(newSave())) as Record<string, any>;
+    delete raw.cards;
+    raw.creatures.push({ id: 'dopelniak', level: 2, fedCycle: -1, caughtAt: T0 }, { id: 'blizniak', level: 1, fedCycle: -1, caughtAt: T0 });
+    raw.progress.glams = { slimakorro: { enemyId: 'slimakorro', count: 2, firstAt: T0 } };
+    const s = migrateSave(raw);
+    expect(s.cards.owned).toEqual({ 'cios-plusika': 5, 'tarcza-z-lisci': 3 });
+    expect(backfillCards(s, DEFS)).toEqual([
+      { cardId: 'tarcza-dopelniaka', count: 3 },
+      { cardId: 'podwojny-dziob', count: 2 },
+      { cardId: 'lepka-kokarda', count: 2 },
+    ]);
+    expect(s.cards.owned).toMatchObject({ 'cios-plusika': 5, 'tarcza-dopelniaka': 3, 'podwojny-dziob': 2, 'lepka-kokarda': 2 });
+    expect(backfillCards(s, DEFS)).toEqual([]);
+    expect(validateSave(s)).toEqual([]);
+    // Zwykła gra: karty już są — nic się nie zmienia.
+    const g = newSave();
+    catchCreature(g, 'blizniak', T0, createRng(1), DEFS);
+    transformEnemy(g, 'trzmielini', T0, createRng(1), DEFS);
+    const before = { ...g.cards.owned };
+    expect(backfillCards(g, DEFS)).toEqual([]);
+    expect(g.cards.owned).toEqual(before);
+  });
+});
+
+describe('handlarz Kartonini w zapisie (GDD 9.5a)', () => {
+  it('świeży zapis: oferta dnia i sprzedaż 2 zapasowych Ciosów; sprzedaż do 3 kopii, potem oferty brak', () => {
+    const s = newSave();
+    expect(offersFor(s, DEFS).map((o) => o.id)).toEqual(['daily:0', 'sell:cios-plusika']);
+    const rng = createRng(4);
+    const a = acceptMerchant(s, 'sell:cios-plusika', undefined, rng, DEFS);
+    expect(a.ok).toBe(true);
+    expect(a.digitsGained).toHaveLength(2);
+    expect(countDigits(s.inventory.digits)).toBe(21);
+    expect(acceptMerchant(s, 'sell:cios-plusika', undefined, rng, DEFS).ok).toBe(true);
+    expect(s.cards.owned['cios-plusika']).toBe(3);
+    const none = acceptMerchant(s, 'sell:cios-plusika', undefined, rng, DEFS);
+    expect(none).toEqual({ ok: false, message: 'Tej oferty już nie ma.', cardGained: null, digitsGained: [] });
+    expect(s.cards.owned['cios-plusika']).toBe(3);
+    expect(countDigits(s.inventory.digits)).toBe(23);
+    expect(validateSave(s)).toEqual([]);
+  });
+
+  it('oferta dnia: raz na cykl; zapamiętany cykl; wraca w następnym cyklu', () => {
+    const s = newSave(11);
+    const offer = offersFor(s, DEFS).find((o) => o.kind === 'daily');
+    if (offer?.kind !== 'daily') throw new Error('brak oferty dnia');
+    const payment = findForgePayment(offer.price, s.inventory.digits);
+    expect(payment).not.toBeNull();
+    // Zła zapłata: nic się nie zmienia.
+    const bad = acceptMerchant(s, offer.id, [1, 1, 1], createRng(1), DEFS);
+    expect(bad.ok).toBe(false);
+    expect(s.progress.merchantDailyCycle).toBe(-1);
+    const ok = acceptMerchant(s, offer.id, payment ?? [], createRng(1), DEFS);
+    expect(ok).toMatchObject({ ok: true, cardGained: offer.cardId });
+    expect(s.cards.owned[offer.cardId]).toBe(1);
+    expect(countDigits(s.inventory.digits)).toBe(16);
+    expect(s.progress.merchantDailyCycle).toBe(0);
+    expect(offersFor(s, DEFS).some((o) => o.kind === 'daily')).toBe(false);
+    expect(acceptMerchant(s, offer.id, payment ?? [], createRng(1), DEFS).ok).toBe(false);
+    expect(validateSave(s)).toEqual([]);
+    expect(roundTrip(s)).toEqual(s);
+    // Nowy cykl → nowa oferta dnia.
+    s.progress.taskSinceReturn = true;
+    returnToBase(s, createRng(2), T0, DEFS);
+    expect(offersFor(s, DEFS).find((o) => o.kind === 'daily')?.id).toBe('daily:1');
+  });
+
+  it('„3 za 1” przez zapis: −3 kopie, +1 karta wyższej rzadkości', () => {
+    const s = newSave();
+    s.cards.owned['cios-plusika'] = 8;
+    const r = acceptMerchant(s, '3for1:cios-plusika', undefined, createRng(3), DEFS);
+    expect(r.ok).toBe(true);
+    expect(TEST_CARDS[r.cardGained as string]?.rarity).toBe('uncommon');
+    expect(s.cards.owned['cios-plusika']).toBe(5);
+    expect(s.cards.owned[r.cardGained as string]).toBe(1);
+    expect(validateSave(s)).toEqual([]);
+  });
+
+  it('nieznane id oferty → odmowa bez zmian', () => {
+    const s = newSave();
+    const before = serializeSave(s);
+    expect(acceptMerchant(s, 'daily:7', [9, 5, 1], createRng(1), DEFS).ok).toBe(false);
+    expect(acceptMerchant(s, 'sell:tarcza-z-lisci', undefined, createRng(1), DEFS).ok).toBe(false);
+    expect(serializeSave(s)).toBe(before);
+  });
+});
+
+describe('dungeon: przebieg wyprawy (GDD 7.5, 11)', () => {
+  it('startDungeonRun: nowa kolejność pokoi, reszta wyzerowana', () => {
+    const s = newSave();
+    s.progress.dungeon = { active: true, roomOrder: ['boss'], roomIndex: 1, enemyCzar: { boss: 3 }, bossPhase: 3, vines: 2, heroHp: 10 };
+    const order = startDungeonRun(s, createRng(1));
+    expect(order).toHaveLength(5);
+    expect([...order.slice(0, 3)].sort()).toEqual(['entry', 'nest', 'vault']);
+    expect(order.slice(3)).toEqual(['campfire', 'boss']);
+    expect(s.progress.dungeon).toEqual({ active: true, roomOrder: order, roomIndex: 0, enemyCzar: {}, bossPhase: 1, vines: 0, heroHp: null });
+    expect(currentRoomId(s)).toBe(order[0]);
+    order.push('x');
+    expect(s.progress.dungeon.roomOrder).toHaveLength(5);
+    // Powtórne wizyty (po ukończonej wyprawie): różne kolejności pokoi 1–3.
+    const orders = new Set<string>();
+    for (let seed = 0; seed < 20; seed++) {
+      const r = newSave();
+      r.progress.lands.meadow.dungeonRuns = 1;
+      orders.add(startDungeonRun(r, createRng(seed)).join());
+    }
+    expect(orders.size).toBeGreaterThan(1);
+  });
+
+  it('regresja: pierwsza wyprawa zawsze w kolejności z tabeli GDD 11 (wejście, skarbiec, gniazdo)', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      const s = newSave();
+      expect(startDungeonRun(s, createRng(seed))).toEqual(['entry', 'vault', 'nest', 'campfire', 'boss']);
+      expect(currentRoomId(s)).toBe('entry');
+    }
+  });
+
+  it('regresja: powtórna wyprawa ma INNĄ kolejność pokoi 1–3 niż poprzednia (GDD 11)', () => {
+    for (let seed = 0; seed < 40; seed++) {
+      const s = newSave();
+      let prev = startDungeonRun(s, createRng(seed));
+      for (let run = 0; run < 4; run++) {
+        expect(finishDungeon(s)).toBe(true);
+        // Ten sam stan rng co poprzednio — bez `previous` makeRoomOrder dałby tę samą kolejność.
+        const next = startDungeonRun(s, createRng(seed));
+        expect(next.slice(0, 3), `seed ${seed}, wyprawa ${run + 2}`).not.toEqual(prev.slice(0, 3));
+        expect(next.slice(3)).toEqual(['campfire', 'boss']);
+        prev = next;
+      }
+      expect(s.progress.lands.meadow.dungeonRuns).toBe(4);
+    }
+    // Przerwana (nieukończona) wyprawa: nowe wejście też zmienia kolejność.
+    const s = newSave();
+    const first = startDungeonRun(s, createRng(1));
+    clearRoom(s);
+    expect(startDungeonRun(s, createRng(1)).slice(0, 3)).not.toEqual(first.slice(0, 3));
+    expect(validateSave(s)).toEqual([]);
+    expect(roundTrip(s)).toEqual(s);
+  });
+
+  it('recordBattleProgress: Czar, faza, pnącza i HP (null = pełne) przetrwają zapis', () => {
+    const s = newSave();
+    startDungeonRun(s, createRng(1));
+    recordBattleProgress(s, 'boss:kosiarrini', { czar: 57, phase: 2, vines: 1, heroHp: 64, heroMaxHp: 100 });
+    expect(s.progress.dungeon).toMatchObject({ enemyCzar: { 'boss:kosiarrini': 57 }, bossPhase: 2, vines: 1, heroHp: 64 });
+    expect(validateSave(s)).toEqual([]);
+    expect(roundTrip(s).progress.dungeon).toEqual(s.progress.dungeon);
+    recordBattleProgress(s, 'boss:kosiarrini', { czar: 40, phase: 3, vines: 0, heroHp: 120, heroMaxHp: 120 });
+    expect(s.progress.dungeon).toMatchObject({ enemyCzar: { 'boss:kosiarrini': 40 }, bossPhase: 3, vines: 0, heroHp: null });
+    // HP 0 → „Stworki cię ratują” (pełne HP); ułamki i śmieci przycinane do poprawnego zapisu.
+    recordBattleProgress(s, 'nest:trzmielini', { czar: -0, phase: 0, vines: 99, heroHp: 0, heroMaxHp: 100 });
+    expect(Object.is(s.progress.dungeon.enemyCzar['nest:trzmielini'], 0)).toBe(true);
+    expect(s.progress.dungeon).toMatchObject({ bossPhase: 1, vines: 10, heroHp: null });
+    recordBattleProgress(s, 'entry:slimakorro', { czar: 12, phase: NaN, vines: NaN, heroHp: 33.6, heroMaxHp: 100 });
+    expect(s.progress.dungeon).toMatchObject({ bossPhase: 1, vines: 0, heroHp: 34 });
+    recordBattleProgress(s, 'entry:slimakorro', { czar: 12, phase: 1, vines: 0, heroHp: 0.4, heroMaxHp: 100 });
+    expect(s.progress.dungeon.heroHp).toBe(1);
+    expect(validateSave(s)).toEqual([]);
+  });
+
+  it('recordBattleProgress: zły klucz lub Czar → wyjątek bez zmian', () => {
+    const s = newSave();
+    startDungeonRun(s, createRng(1));
+    const st = { czar: 5, phase: 1, vines: 0, heroHp: 50, heroMaxHp: 100 };
+    expect(() => recordBattleProgress(s, '', st)).toThrow(RangeError);
+    expect(() => recordBattleProgress(s, 'x'.repeat(101), st)).toThrow(RangeError);
+    expect(() => recordBattleProgress(s, '__proto__', st)).toThrow(RangeError);
+    expect(() => recordBattleProgress(s, 'entry', { ...st, czar: NaN })).toThrow(RangeError);
+    expect(s.progress.dungeon.enemyCzar).toEqual({});
+    expect(s.progress.dungeon.heroHp).toBeNull();
+  });
+
+  it('clearRoom: następny pokój, HP zostaje, stan bossa zerowany; ognisko przywraca HP; finishDungeon', () => {
+    const s = newSave();
+    const order = startDungeonRun(s, createRng(2));
+    recordBattleProgress(s, 'a', { czar: 0, phase: 2, vines: 1, heroHp: 70, heroMaxHp: 100 });
+    expect(clearRoom(s)).toBe(order[1]);
+    expect(s.progress.dungeon).toMatchObject({ roomIndex: 1, heroHp: 70, bossPhase: 1, vines: 0 });
+    expect(clearRoom(s)).toBe(order[2]);
+    expect(clearRoom(s)).toBe('campfire');
+    restAtCampfire(s);
+    expect(s.progress.dungeon.heroHp).toBeNull();
+    expect(clearRoom(s)).toBe('boss');
+    expect(clearRoom(s)).toBeNull();
+    expect(s.progress.dungeon.roomIndex).toBe(5);
+    expect(currentRoomId(s)).toBeNull();
+    expect(clearRoom(s)).toBeNull();
+    expect(s.progress.dungeon.roomIndex).toBe(5);
+    expect(validateSave(s)).toEqual([]);
+
+    expect(finishDungeon(s)).toBe(true);
+    expect(s.progress.lands.meadow.dungeonRuns).toBe(1);
+    // Kolejność pokoi zostaje jako „poprzednia” (następna wyprawa dostanie inną); reszta wyzerowana.
+    expect(s.progress.dungeon).toEqual({ active: false, roomOrder: order, roomIndex: 0, enemyCzar: {}, bossPhase: 1, vines: 0, heroHp: null });
+    expect(validateSave(s)).toEqual([]);
+    expect(roundTrip(s)).toEqual(s);
+    expect(finishDungeon(s)).toBe(false);
+    expect(s.progress.lands.meadow.dungeonRuns).toBe(1);
+    expect(currentRoomId(s)).toBeNull();
+    expect(clearRoom(s)).toBeNull();
+    expect(s.progress.dungeon.roomIndex).toBe(0);
+    startDungeonRun(s, createRng(3));
+    expect(finishDungeon(s, 'cave')).toBe(true);
+    expect(s.progress.lands.cave.dungeonRuns).toBe(1);
+    expect(validateSave(s)).toEqual([]);
+  });
+
+  it('regresja: HP ≤ 0 w zapisie → po wczytaniu pełne HP (null), tak jak w recordBattleProgress (GDD 7.5)', () => {
+    const s = newSave();
+    startDungeonRun(s, createRng(1));
+    recordBattleProgress(s, 'entry', { czar: 5, phase: 1, vines: 0, heroHp: 0, heroMaxHp: 100 });
+    expect(s.progress.dungeon.heroHp).toBeNull();
+    // Warstwa gry wpisała HP wprost (np. combat.heroHp po upadku) — wczytanie nie może dać 1 HP.
+    for (const hp of [0, -3]) {
+      s.progress.dungeon.heroHp = hp;
+      expect(roundTrip(s).progress.dungeon.heroHp, String(hp)).toBeNull();
+    }
+  });
+
+  it('przerwana wyprawa wznawia się po wczytaniu zapisu (ten sam pokój, Czar, HP)', () => {
+    const s = newSave();
+    startDungeonRun(s, createRng(5));
+    clearRoom(s);
+    recordBattleProgress(s, 'room2', { czar: 9, phase: 1, vines: 0, heroHp: 41, heroMaxHp: 100 });
+    const back = roundTrip(s);
+    expect(currentRoomId(back)).toBe(currentRoomId(s));
+    expect(back.progress.dungeon.enemyCzar.room2).toBe(9);
+    expect(back.progress.dungeon.heroHp).toBe(41);
+  });
+});
+
+describe('brama z darem (GDD 10.4)', () => {
+  it('sprytne rozwiązanie bramy z darem nie daje bonusowej skrzynki (bez farmienia), pochwała zostaje', () => {
+    const s = newSave();
+    s.inventory.digits = digitsFromList([1, 2]);
+    const gate: GateSpec = { target: 54, gift: digitsFromList([6, 9]), ops: ['×'] };
+    applyGateGift(s, gate);
+    const score = openGate(s, gateTokensOf(6, '×', 9), gate);
+    expect(score).toMatchObject({ valid: true, smart: true });
+    expect(s.progress.pendingBonusChest).toBe(false);
+    expect(s.progress.lands.meadow.gatesOpened).toBe(1);
+  });
+
+  it('dar z samych zer liczników to brak daru → sprytne nadal daje skrzynkę', () => {
+    const s = newSave();
+    const score = openGate(s, gateTokensOf(6, '×', 9), { target: 54, gift: emptyDigits(), ops: ['×'] });
+    expect(score.smart).toBe(true);
+    expect(s.progress.pendingBonusChest).toBe(true);
+  });
+
+  it('brama z darem: wcześniejsza bonusowa skrzynka nie znika', () => {
+    const s = newSave();
+    s.progress.pendingBonusChest = true;
+    openGate(s, gateTokensOf(6, '×', 9), { target: 54, gift: digitsFromList([0]), ops: ['×'] });
+    expect(s.progress.pendingBonusChest).toBe(true);
   });
 });
 
@@ -570,6 +960,17 @@ describe('fasada core/index', () => {
       'returnToBase',
       'unlockedActionsOf',
       'finishCalibration',
+      'deckOf',
+      'collectionOf',
+      'offersFor',
+      'acceptMerchant',
+      'backfillCards',
+      'startDungeonRun',
+      'currentRoomId',
+      'recordBattleProgress',
+      'clearRoom',
+      'restAtCampfire',
+      'finishDungeon',
     ]) {
       expect(typeof (core as Record<string, unknown>)[name], name).toBe('function');
     }

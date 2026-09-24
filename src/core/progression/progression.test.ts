@@ -11,6 +11,8 @@ import {
   shouldStageUp,
   stageCategories,
   stageMastery,
+  START_STAGE_MAX,
+  stageOwnCategories,
   startingStageFromMastery,
 } from './progression';
 import type { PoolAction } from './progression';
@@ -78,9 +80,10 @@ describe('stageCategories — Łąka (GDD 6.5)', () => {
     expect(stageCategories('meadow', 4, settings({ crossTenOnMeadow: false }))).not.toContain('add.cross10');
   });
 
-  it('zakres 10 odfiltrowuje kategorie do 20', () => {
+  it('zakres 10 odfiltrowuje kategorie do 20 (trzy składniki zostają — suma ≤ 10)', () => {
     const s = settings({ range: 10 });
-    expect(stageCategories('meadow', 4, s)).toEqual(['add.within10', 'add.complement10', 'add.doubles']);
+    expect(stageCategories('meadow', 4, s)).toEqual(['add.within10', 'add.complement10', 'add.doubles', 'add.three']);
+    expect(stageCategories('meadow', 3, s)).toEqual(['add.within10', 'add.complement10', 'add.doubles']);
   });
 
   it('etap przycięty do 1..4', () => {
@@ -151,7 +154,9 @@ describe('actionCategories — Łąka tematycznie (GDD 7.2)', () => {
     expect(pool('strongDefend', 2)).toEqual(['add.within10']);
     expect(pool('strongDefend', 3)).toEqual(['add.within20']);
     expect(pool('strongDefend', 4)).toEqual(['add.three']);
-    expect(pool('strongDefend', 4, settings({ range: 10 }))).toEqual(['add.within10']);
+    // Zakres 10: trzy składniki z sumą ≤ 10 (add.three dostępne od zakresu 10); Ł3 bez do 20 → do 10.
+    expect(pool('strongDefend', 4, settings({ range: 10 }))).toEqual(['add.three']);
+    expect(pool('strongDefend', 3, settings({ range: 10 }))).toEqual(['add.within10']);
   });
 
   it('boss: faza 1 pula ataku, faza 2 podwajanie + dopełnianie, faza 3 cała Łąka', () => {
@@ -173,7 +178,7 @@ describe('actionCategories — Łąka tematycznie (GDD 7.2)', () => {
     expect(pool('catch', 1, DEF, { creature: DOPELNIAK })).toEqual(['add.complement10']);
     expect(pool('catch', 1, DEF, { creature: BLIZNIAK })).toEqual(['add.doubles']);
     expect(pool('catch', 1, DEF, { creature: KONICZYNEK })).toEqual(['add.three', 'add.within20']);
-    expect(pool('catch', 4, settings({ range: 10 }), { creature: KONICZYNEK })).toEqual(['add.within10']);
+    expect(pool('catch', 4, settings({ range: 10 }), { creature: KONICZYNEK })).toEqual(['add.three']);
     expect(pool('catch', 2, DEF)).toEqual(stageCategories('meadow', 2, DEF));
   });
 });
@@ -342,9 +347,11 @@ describe('etapy: awans i start po kalibracji', () => {
     expect(shouldStageUp({ land: 'meadow', settings: settings({ ops: ops(false, true, true, true) }), stage: 1, mastery: () => 1 })).toBe(false);
   });
 
-  it('etap startowy: najwyższy, którego wcześniejsze etapy są opanowane', () => {
+  it('etap startowy: najwyższy, którego wcześniejsze etapy są opanowane (maks. 3)', () => {
     const base = { land: 'meadow' as const, settings: DEF };
-    expect(startingStageFromMastery({ ...base, mastery: () => 1 })).toBe(4);
+    // Ł4 tylko grą (shouldStageUp), nie z kalibracji.
+    expect(START_STAGE_MAX).toBe(3);
+    expect(startingStageFromMastery({ ...base, mastery: () => 1 })).toBe(3);
     expect(startingStageFromMastery({ ...base, mastery: () => 0 })).toBe(1);
     expect(startingStageFromMastery({ ...base, mastery: m({ 'add.within10': 0.9 }, 0.3) })).toBe(2);
     expect(
@@ -355,7 +362,41 @@ describe('etapy: awans i start po kalibracji', () => {
     ).toBe(3);
   });
 
-  it('właściwości: wynik 1..4, monotoniczny względem opanowania, zgodny z shouldStageUp', () => {
+  it('dowody (evidence): awans ponad etap tylko, gdy własna kategoria etapu ma ≥ 2 próby', () => {
+    const base = { land: 'meadow' as const, settings: DEF, mastery: () => 1 };
+    const ev =
+      (counts: Partial<Record<CategoryId, number>>) =>
+      (c: CategoryId): number =>
+        counts[c] ?? 0;
+    // Same priorytety (0 prób) → start na Ł1 mimo wysokiego opanowania.
+    expect(startingStageFromMastery({ ...base, evidence: ev({}) })).toBe(1);
+    // add.within10 z 1 próbą — za mało.
+    expect(startingStageFromMastery({ ...base, evidence: ev({ 'add.within10': 1 }) })).toBe(1);
+    // Ł1 potwierdzony; Ł2 (dopełnianie, podwajanie) bez prób → Ł2.
+    expect(startingStageFromMastery({ ...base, evidence: ev({ 'add.within10': 2 }) })).toBe(2);
+    // Próby tylko w kategorii z Ł1 nie potwierdzają Ł2 (liczą się własne kategorie etapu).
+    expect(startingStageFromMastery({ ...base, evidence: ev({ 'add.within10': 9, 'add.within20': 9 }) })).toBe(2);
+    // Jedna własna kategoria Ł2 wystarczy.
+    expect(startingStageFromMastery({ ...base, evidence: ev({ 'add.within10': 2, 'add.doubles': 2 }) })).toBe(3);
+    // Nawet z dowodami dla wszystkich etapów — maks. 3.
+    const all = ev(Object.fromEntries(stageCategories('meadow', 4, DEF).map((c) => [c, 5])));
+    expect(startingStageFromMastery({ ...base, evidence: all })).toBe(3);
+    // Dowody bez opanowania nic nie dają; śmieciowe liczby = brak dowodu.
+    expect(startingStageFromMastery({ ...base, mastery: () => 0.5, evidence: all })).toBe(1);
+    expect(startingStageFromMastery({ ...base, evidence: () => Number.NaN })).toBe(1);
+    // Stary podpis (bez evidence) działa jak wcześniej, z limitem 3.
+    expect(startingStageFromMastery({ land: 'meadow', settings: DEF, mastery: () => 1 })).toBe(3);
+  });
+
+  it('własne kategorie etapu: filtrowane ustawieniami; brak dostępnych → cała pula etapu', () => {
+    expect(stageOwnCategories('meadow', 2, DEF)).toEqual(['add.complement10', 'add.doubles']);
+    expect(stageOwnCategories('meadow', 4, settings({ crossTenOnMeadow: false }))).toEqual(['add.three']);
+    // Zakres 10: Ł3 (do 20) niedostępny → pula etapu 3.
+    const s10 = settings({ range: 10 });
+    expect(stageOwnCategories('meadow', 3, s10)).toEqual(stageCategories('meadow', 3, s10));
+  });
+
+  it('właściwości: wynik 1..3, monotoniczny względem opanowania i dowodów, zgodny z shouldStageUp', () => {
     const cats = stageCategories('meadow', 4, DEF);
     const masteryArb = fc.array(fc.double({ min: 0, max: 1, noNaN: true }), {
       minLength: cats.length,
@@ -367,11 +408,18 @@ describe('etapy: awans i start po kalibracji', () => {
         const args = { land: 'meadow' as const, settings: DEF };
         const s = startingStageFromMastery({ ...args, mastery: lookup(vals) });
         expect(s).toBeGreaterThanOrEqual(1);
-        expect(s).toBeLessThanOrEqual(MAX_STAGE);
+        expect(s).toBeLessThanOrEqual(START_STAGE_MAX);
         for (let k = 1; k < s; k++) expect(shouldStageUp({ ...args, stage: k, mastery: lookup(vals) })).toBe(true);
-        if (s < MAX_STAGE) expect(shouldStageUp({ ...args, stage: s, mastery: lookup(vals) })).toBe(false);
+        if (s < START_STAGE_MAX) expect(shouldStageUp({ ...args, stage: s, mastery: lookup(vals) })).toBe(false);
         const higher = vals.map((v) => Math.min(1, v + bump));
         expect(startingStageFromMastery({ ...args, mastery: lookup(higher) })).toBeGreaterThanOrEqual(s);
+        // Dowody tylko ograniczają; więcej dowodów nie obniża etapu.
+        const evid = (n: number) => (c: CategoryId) => (cats.indexOf(c) % 2 === 0 ? n : 0);
+        const withFew = startingStageFromMastery({ ...args, mastery: lookup(vals), evidence: evid(1) });
+        const withMany = startingStageFromMastery({ ...args, mastery: lookup(vals), evidence: evid(3) });
+        expect(withFew).toBeLessThanOrEqual(withMany);
+        expect(withMany).toBeLessThanOrEqual(s);
+        expect(withFew).toBe(1);
       }),
       { numRuns: 500 },
     );

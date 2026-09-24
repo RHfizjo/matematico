@@ -13,7 +13,9 @@ import {
   NUMBER_RANGES,
   OPS,
   QUALITY_PRESETS,
+  STARTER_CARDS,
   TIME_LIMIT_MODES,
+  isCardId,
   isCategoryId,
   isCreatureId,
   isDistractorKind,
@@ -178,9 +180,11 @@ function checkProgress(c: Checker, p: string, v: unknown): number | null {
     'chestPity',
     'dungeon',
     'pendingBonusChest',
+    'merchantDailyCycle',
   ];
   if (!c.obj(p, v, keys)) return null;
   c.int(`${p}.cycle`, v.cycle);
+  const cycle = typeof v.cycle === 'number' ? v.cycle : Number.MAX_SAFE_INTEGER;
   c.bool(`${p}.taskSinceReturn`, v.taskSinceReturn);
   c.bool(`${p}.calibrated`, v.calibrated);
   c.bool(`${p}.firstExpeditionDone`, v.firstExpeditionDone);
@@ -216,7 +220,7 @@ function checkProgress(c: Checker, p: string, v: unknown): number | null {
   }
   c.int(`${p}.chestPity`, v.chestPity);
   const d = v.dungeon;
-  if (c.obj(`${p}.dungeon`, d, ['active', 'roomOrder', 'roomIndex', 'enemyCzar', 'bossPhase'])) {
+  if (c.obj(`${p}.dungeon`, d, ['active', 'roomOrder', 'roomIndex', 'enemyCzar', 'bossPhase', 'vines', 'heroHp'])) {
     c.bool(`${p}.dungeon.active`, d.active);
     let rooms = 0;
     if (c.arr(`${p}.dungeon.roomOrder`, d.roomOrder)) {
@@ -233,8 +237,11 @@ function checkProgress(c: Checker, p: string, v: unknown): number | null {
       }
     }
     c.int(`${p}.dungeon.bossPhase`, d.bossPhase, 1, L.bossPhaseMax);
+    c.int(`${p}.dungeon.vines`, d.vines, 0, L.vinesMax);
+    if (d.heroHp !== null) c.int(`${p}.dungeon.heroHp`, d.heroHp, 1, L.heroHpMax);
   }
   c.bool(`${p}.pendingBonusChest`, v.pendingBonusChest);
+  c.int(`${p}.merchantDailyCycle`, v.merchantDailyCycle, -1, cycle);
   return typeof v.cycle === 'number' ? v.cycle : null;
 }
 
@@ -250,6 +257,7 @@ export function validateSave(raw: unknown): string[] {
     'settings',
     'model',
     'inventory',
+    'cards',
     'creatures',
     'equipment',
     'progress',
@@ -284,6 +292,19 @@ export function validateSave(raw: unknown): string[] {
     const digits = s.inventory.digits;
     c.test('inventory.digits', digits.length === 10, 'długość ≠ 10');
     digits.forEach((x, i) => c.int(`inventory.digits[${i}]`, x, 0, L.digitMax));
+  }
+
+  if (c.obj('cards', s.cards, ['owned']) && c.obj('cards.owned', s.cards.owned)) {
+    const owned = s.cards.owned;
+    for (const [k, n] of Object.entries(owned)) {
+      const q = `cards.owned[${k}]`;
+      c.test(q, isCardId(k), 'nieznana karta');
+      c.int(q, n, 0, L.cardMax);
+    }
+    for (const [id, start] of Object.entries(STARTER_CARDS)) {
+      const n = owned[id];
+      c.test(`cards.owned[${id}]`, typeof n === 'number' && n >= Math.min(start, L.starterCardMin), 'za mało kart startowych');
+    }
   }
 
   const cycle = checkProgress(c, 'progress', s.progress);

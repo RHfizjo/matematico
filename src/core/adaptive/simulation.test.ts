@@ -12,6 +12,32 @@ import { T0, attemptForTask, makeSettings, simulate, type SimStep } from './test
 const POOL: CategoryId[] = ['mul.t2', 'mul.t3', 'mul.t4', 'mul.t5', 'mul.t6', 'mul.t7', 'mul.t8', 'mul.t9', 'mul.t10'];
 const POOL_FACTS = allFacts(makeSettings()).filter((f) => categoriesOfFact(f).some((c) => POOL.includes(c)));
 const WEAK = new Set(['mul:7x8', 'mul:8x7', 'mul:6x9', 'mul:9x6']);
+/** Słabe pary przemienne (obie orientacje). */
+const WEAK_PAIRS: readonly (readonly [string, string])[] = [
+  ['mul:7x8', 'mul:8x7'],
+  ['mul:6x9', 'mul:9x6'],
+];
+
+/**
+ * Obie orientacje pary pokazywane podobnie często (GDD 5.1: 8 × 7 nie jest „głodzony”, gdy ćwiczony
+ * jest 7 × 8). Para pokazana ≥ 4 razy → każda orientacja ≥ 1 i różnica ≤ max(2, 20% sumy).
+ * Zwraca liczbę pokazań pary.
+ */
+function expectBalancedPair(counts: ReadonlyMap<string, number>, [a, b]: readonly [string, string]): number {
+  const x = counts.get(a) ?? 0;
+  const y = counts.get(b) ?? 0;
+  if (x + y >= 4) {
+    expect(Math.min(x, y), `${a}: ${x}, ${b}: ${y}`).toBeGreaterThan(0);
+    expect(Math.abs(x - y), `${a}: ${x}, ${b}: ${y}`).toBeLessThanOrEqual(Math.max(2, 0.2 * (x + y)));
+  }
+  return x + y;
+}
+
+function factCounts(steps: readonly { factId: string | null }[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const s of steps) if (s.factId !== null) out.set(s.factId, (out.get(s.factId) ?? 0) + 1);
+  return out;
+}
 const SEEDS = [1, 2, 3, 4, 5];
 
 const mean = (xs: readonly number[]): number => xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -52,6 +78,15 @@ describe('symulacja: słabe fakty 7×8, 8×7, 6×9, 9×6 (p = 0.4), reszta p = 0
       const perWeak = weak / WEAK.size;
       const perStrong = (steps.length - weak) / (POOL_FACTS.length - WEAK.size);
       expect(perWeak).toBeGreaterThanOrEqual(2 * perStrong);
+    }
+  });
+
+  it('bliźniaki: obie orientacje słabej pary pojawiają się i w podobnej liczbie', () => {
+    for (const { steps } of runs) {
+      const counts = factCounts(steps);
+      const shown = WEAK_PAIRS.map((pair) => expectBalancedPair(counts, pair));
+      // Co najmniej jedna słaba para jest ćwiczona w każdym przebiegu (test nie jest pusty).
+      expect(Math.max(...shown)).toBeGreaterThanOrEqual(10);
     }
   });
 
@@ -118,7 +153,7 @@ describe('symulacja: słabe fakty 7×8, 8×7, 6×9, 9×6 (p = 0.4), reszta p = 0
 
 describe('symulacja: dziecko uczy się słabych faktów → pojawiają się rzadziej', () => {
   /** Rozgrzewka: wszystkie fakty pokazane raz (forceBucket 'new'), potem 6 sesji po 100 zadań. */
-  function run(seed: number): number[] {
+  function run(seed: number): { perSession: number[]; counts: Map<string, number> } {
     const model = createSkillModel();
     const exposures = new Map<string, number>();
     // Prawdopodobieństwo słabego faktu rośnie z każdą ekspozycją (0.3 → 0.95).
@@ -142,14 +177,29 @@ describe('symulacja: dziecko uczy się słabych faktów → pojawiają się rzad
       perSession: 100,
       trueP: (f, e) => p(f, e + (exposures.get(f) ?? 0)),
     });
-    return [0, 1, 2, 3, 4, 5].map((s) => steps.filter((x) => x.session === s && WEAK.has(x.factId as string)).length);
+    return {
+      perSession: [0, 1, 2, 3, 4, 5].map((s) => steps.filter((x) => x.session === s && WEAK.has(x.factId as string)).length),
+      counts: factCounts(steps),
+    };
   }
+  // Leniwie (run zawiera asercje — wołane dopiero w teście).
+  let cache: ReturnType<typeof run>[] | undefined;
+  const learnRuns = (): ReturnType<typeof run>[] => (cache ??= SEEDS.map(run));
+
+  it('bliźniaki: po rozgrzewce obie orientacje każdej słabej pary są ćwiczone (podobnie często)', () => {
+    for (const { counts } of learnRuns()) {
+      for (const [a, b] of WEAK_PAIRS) {
+        expect(counts.get(a) ?? 0, a).toBeGreaterThan(0);
+        expect(counts.get(b) ?? 0, b).toBeGreaterThan(0);
+        expectBalancedPair(counts, [a, b]);
+      }
+    }
+  });
 
   it('liczba słabych faktów w sesjach 5–6 mniejsza niż w sesjach 1–2', () => {
     const early: number[] = [];
     const late: number[] = [];
-    for (const seed of SEEDS) {
-      const per = run(seed);
+    for (const { perSession: per } of learnRuns()) {
       const e = (per[0] ?? 0) + (per[1] ?? 0);
       const l = (per[4] ?? 0) + (per[5] ?? 0);
       expect(l).toBeLessThan(e);

@@ -37,6 +37,14 @@ function fakePortrait(model: ModelId): Promise<string> {
   return new Promise(r => setTimeout(() => r(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`), 60));
 }
 
+/**
+ * Prawdziwe portrety z render/ — renderowane RAZ na starcie, potem kontekst WebGL jest zwalniany.
+ * (SwiftShader w headless Chromie wstrzymuje start animacji CSS, gdy w tle działa readPixels.)
+ */
+const PORTRAIT_IDS: ModelId[] = [
+  'creature:plusik', 'creature:dopelniak', 'creature:blizniak', 'glam:trzmielini', 'glam:kosiarrini',
+  'glam:grzybello', 'npc:kartonini',
+];
 async function realPortraits(): Promise<((m: ModelId) => Promise<string>) | null> {
   try {
     const THREE = await import('three');
@@ -47,7 +55,14 @@ async function realPortraits(): Promise<((m: ModelId) => Promise<string>) | null
     canvas.height = 8;
     const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false });
     const pr = new PortraitRenderer(renderer, createModelFactory());
-    return m => pr.portrait(m, 256);
+    const cache = new Map<string, string>();
+    for (const id of PORTRAIT_IDS) cache.set(id, await pr.portrait(id, 256));
+    renderer.dispose();
+    renderer.forceContextLoss();
+    return m => {
+      const hit = cache.get(m);
+      return hit ? Promise.resolve(hit) : fakePortrait(m);
+    };
   } catch (e) {
     console.warn('Portrety 3D niedostępne — zastępcze.', e);
     return null;
@@ -179,7 +194,11 @@ function tap(sel: string | Element | null): void {
   el.dispatchEvent(new PointerEvent('pointerup', o));
 }
 
+let demoTimer: ReturnType<typeof setInterval> | null = null;
+
 function fresh(combat = false): UiApiExt {
+  if (demoTimer) clearInterval(demoTimer);
+  demoTimer = null;
   rootEl.textContent = '';
   rootEl.className = '';
   document.body.classList.toggle('combat', combat);
@@ -221,22 +240,50 @@ const STATES: Record<string, () => Promise<unknown> | void> = {
     const u = fresh();
     void u.profileSetup({ name: 'Ola', color: '#3fa7ff' }).then(v => log('profile', v));
   },
-  hud: async () => {
+  hud: () => {
     const u = fresh(true);
     combatHud(u);
     u.setFpsVisible(true, () => ({ fps: 59.7, renderScale: 0.85, quality: 'medium' }));
-    await sleep(300);
-    const hx = innerWidth * 0.36;
-    const ex = innerWidth * 0.64;
-    u.hud.floatText({ x: ex - 40, y: innerHeight * 0.44, visible: true }, '8', 'dmg');
-    u.hud.floatText({ x: ex + 70, y: innerHeight * 0.36, visible: true }, '12', 'crit');
-    u.hud.floatText({ x: hx, y: innerHeight * 0.4, visible: true }, '10', 'block');
-    u.hud.floatText({ x: hx - 90, y: innerHeight * 0.52, visible: true }, '+15', 'heal');
-    u.hud.floatText({ x: ex + 150, y: innerHeight * 0.55, visible: true }, 'pudło', 'miss');
-    u.hud.floatText({ x: innerWidth * 0.5, y: innerHeight * 0.3, visible: true }, '+3', 'digit');
-    await sleep(250);
-    u.hud.setEnemy({ name: 'Grzybello Kalafiorello', czar: 18, maxCzar: 40 });
-    u.hud.setDigits(30);
+    let czar = 26;
+    const kinds = [
+      ['8', 'dmg', 0.62, 0.46],
+      ['12', 'crit', 0.7, 0.36],
+      ['10', 'block', 0.36, 0.42],
+      ['+15', 'heal', 0.3, 0.52],
+      ['pudło', 'miss', 0.76, 0.56],
+      ['+3', 'digit', 0.5, 0.3],
+    ] as const;
+    const spawn = (): void => {
+      for (const [t, k, fx, fy] of kinds) u.hud.floatText({ x: innerWidth * fx, y: innerHeight * fy, visible: true }, t, k);
+      czar = czar <= 8 ? 26 : czar - 6;
+      u.hud.setEnemy({ name: 'Grzybello Kalafiorello', czar, maxCzar: 40 });
+    };
+    spawn();
+    demoTimer = setInterval(spawn, 1100);
+  },
+  floats: () => {
+    const u = fresh(true);
+    combatHud(u);
+    const kinds = [
+      ['8', 'dmg', 0.64, 0.44],
+      ['12', 'crit', 0.7, 0.36],
+      ['10', 'block', 0.36, 0.4],
+      ['+15', 'heal', 0.3, 0.5],
+      ['pudło', 'miss', 0.74, 0.55],
+      ['+3', 'digit', 0.5, 0.3],
+    ] as const;
+    const spawn = (): void => {
+      for (const [t, k, fx, fy] of kinds) u.hud.floatText({ x: innerWidth * fx, y: innerHeight * fy, visible: true }, t, k);
+    };
+    spawn();
+    demoTimer = setInterval(spawn, 1000);
+  },
+  'hud-explore': () => {
+    const u = fresh();
+    u.hud.show(true);
+    u.hud.setLocation('Łąka');
+    u.hud.setDigits(12);
+    u.hud.setHp(100, 100);
   },
   'hud-boss': () => {
     const u = fresh(true);
@@ -318,14 +365,12 @@ const STATES: Record<string, () => Promise<unknown> | void> = {
     combatHud(u);
     void u.cardTurn(CARD_VIEW);
     void u.answer(answerReq({ card: CARDS[0] })).then(r => log('answer', r));
-    await sleep(500);
-    tap('.ans-opt:nth-child(2)');
+    setTimeout(() => tap('.ans-opt:nth-child(2)'), 600);
   },
   'answer-wrong': async () => {
     const u = fresh();
     void u.answer(answerReq({ card: CARDS[0] })).then(r => log('answer', r));
-    await sleep(500);
-    tap('.ans-opt:nth-child(3)');
+    setTimeout(() => tap('.ans-opt:nth-child(3)'), 800);
   },
   'hint-line': () => {
     const u = fresh();
@@ -394,14 +439,16 @@ const STATES: Record<string, () => Promise<unknown> | void> = {
     };
     loop('auto');
   },
-  toast: async () => {
+  toast: () => {
     const u = fresh(true);
     combatHud(u);
-    u.toast('Zapisano grę', 'good');
-    await sleep(120);
-    u.toast('Nowa karta w talii: Brokatowy rój!', 'info');
-    await sleep(120);
-    u.toast('Za mało cyfr na ulepszenie', 'warn');
+    const burst = (): void => {
+      u.toast('Zapisano grę', 'good');
+      setTimeout(() => u.toast('Nowa karta w talii: Brokatowy rój!', 'info'), 150);
+      setTimeout(() => u.toast('Za mało cyfr na ulepszenie', 'warn'), 300);
+    };
+    burst();
+    demoTimer = setInterval(burst, 2400);
   },
   loading: async () => {
     const u = fresh();
@@ -442,9 +489,8 @@ function overflow(): string[] {
   const W = innerWidth;
   const H = innerHeight;
   rootEl.querySelectorAll<HTMLElement>('*').forEach(el => {
-    if (el.closest('.cel-rays, .cel-confetti, .hud-floats, .sparkles, .ct-slot.is-flying')) return;
-    const cs = getComputedStyle(el);
-    if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0) return;
+    if (el.closest('.cel-rays, .cel-confetti, .hud-floats, .sparkles, .ct-slot.is-flying, .ui-fade')) return;
+    if (!el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return;
     const r = el.getBoundingClientRect();
     if (r.width === 0 || r.height === 0) return;
     if (r.left < -1 || r.top < -1 || r.right > W + 1 || r.bottom > H + 1) {

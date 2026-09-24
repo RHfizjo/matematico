@@ -52,6 +52,26 @@ export function glowMaterial(color: string, intensity = 2): THREE.MeshLambertMat
   );
 }
 
+/** Dodatek do intensywności świecenia w kolorach wierzchołków (≈ rozproszone światło sceny w dzień). */
+export const GLOW_VERTEX_BASE = 0.7;
+
+/**
+ * Wspólny materiał „świecących kostek” łączonych w JEDNĄ siatkę na część: bez oświetlenia, kolor z wierzchołków
+ * w HDR (kolor × (glow + GLOW_VERTEX_BASE), może być > 1 → łapie go bloom). Dzięki temu np. witrażowe skrzydła
+ * z 7 kolorów to 1 wywołanie rysowania zamiast 7 (budżet GDD 17.3: ≤ 150 na klatkę).
+ */
+export function glowVertexMaterial(): THREE.MeshBasicMaterial {
+  let m = glowVertex;
+  if (!m) {
+    m = new THREE.MeshBasicMaterial({ vertexColors: true });
+    m.name = 'models:glow-vertex';
+    m.userData.shared = true;
+    glowVertex = m;
+  }
+  return m;
+}
+let glowVertex: THREE.MeshBasicMaterial | null = null;
+
 /**
  * Własna (niewspółdzielona) kopia materiału — do animowania emisji/koloru pojedynczego modelu.
  * Zwalniana przez rig. Zapamiętuje domyślną emisję i kolor w userData.

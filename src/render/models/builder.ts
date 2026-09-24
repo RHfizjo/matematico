@@ -9,7 +9,7 @@
  * wydziela do osobnych siatek. Dzięki temu model ma zwykle 5–20 siatek.
  */
 import * as THREE from 'three';
-import { glowMaterial, ownedClone } from './materials';
+import { GLOW_VERTEX_BASE, glowMaterial, glowVertexMaterial, ownedClone } from './materials';
 
 export type V3 = readonly [number, number, number];
 
@@ -18,7 +18,10 @@ export interface BoxOpts {
   rot?: V3;
   /** Jasność dolnych wierzchołków (0..1, domyślnie 0.8) — pionowy gradient „okluzji”. */
   shade?: number;
-  /** Świecenie: kostka dostaje wspólny materiał emisyjny w swoim kolorze o tej intensywności. */
+  /**
+   * Świecenie o tej intensywności (~1 subtelnie, 2–3 mocno). Zwykłe świecące kostki części łączą się w jedną siatkę
+   * (wspólny materiał bez oświetlenia, kolor HDR w wierzchołkach); z `name` — osobna siatka ze wspólnym materiałem emisyjnym.
+   */
   glow?: number;
   /** Osobna siatka o tej nazwie (do niezależnej animacji / podmiany materiału); kostki o tej samej nazwie w jednej części łączą się. */
   name?: string;
@@ -96,6 +99,8 @@ export function mergeBoxes(boxes: readonly BoxRec[], origin: V3): THREE.BufferGe
   for (const b of boxes) {
     const [sx, sy, sz] = b.size;
     const shade = b.opts.shade ?? 0.8;
+    // świecące kostki: kolor HDR w wierzchołkach (używany przez glowVertexMaterial; materiały bez vertexColors go ignorują)
+    const gk = b.opts.glow !== undefined ? b.opts.glow + GLOW_VERTEX_BASE : 1;
     const rot = b.opts.rot;
     if (rot) _q.setFromEuler(_e.set(rot[0], rot[1], rot[2]));
     for (const f of FACES) {
@@ -116,7 +121,7 @@ export function mergeBoxes(boxes: readonly BoxRec[], origin: V3): THREE.BufferGe
         nor[v * 3] = _nrm.x;
         nor[v * 3 + 1] = _nrm.y;
         nor[v * 3 + 2] = _nrm.z;
-        const k = shade + (1 - shade) * (uy + 0.5);
+        const k = (shade + (1 - shade) * (uy + 0.5)) * gk;
         col[v * 3] = b.color.r * k;
         col[v * 3 + 1] = b.color.g * k;
         col[v * 3 + 2] = b.color.b * k;
@@ -140,10 +145,18 @@ export function mergeBoxes(boxes: readonly BoxRec[], origin: V3): THREE.BufferGe
   return g;
 }
 
+/** Lokalne przekształcenie fragmentu modelu: p' = to + (p − from) · scale (np. powiększona głowa). */
+export interface LocalXf {
+  from: V3;
+  to: V3;
+  scale: number;
+}
+
 export class ModelBuilder {
   private readonly recs = new Map<string, PivotRec>();
   private readonly order: PivotRec[] = [];
   private readonly groupMats = new Map<string, THREE.MeshLambertMaterial>();
+  private xf: LocalXf | null = null;
 
   /**
    * @param base materiał bazowy (wspólny) dla zwykłych kostek
@@ -159,11 +172,38 @@ export class ModelBuilder {
     this.order.push(all);
   }
 
+  /**
+   * Wszystkie box()/pivot() wywołane w `fn` są przekształcane: p' = to + (p − from) · scale, rozmiary · scale.
+   * Pozwala np. powiększyć głowę bez przeliczania każdej kostki. Bez zagnieżdżania.
+   */
+  transformed(xf: LocalXf, fn: () => void): this {
+    const prev = this.xf;
+    this.xf = xf;
+    try {
+      fn();
+    } finally {
+      this.xf = prev;
+    }
+    return this;
+  }
+
+  private tp(p: V3): V3 {
+    const x = this.xf;
+    if (!x) return p;
+    return [x.to[0] + (p[0] - x.from[0]) * x.scale, x.to[1] + (p[1] - x.from[1]) * x.scale, x.to[2] + (p[2] - x.from[2]) * x.scale];
+  }
+
+  private ts(v: V3): V3 {
+    const x = this.xf;
+    return x ? [v[0] * x.scale, v[1] * x.scale, v[2] * x.scale] : v;
+  }
+
   /** Nowa część (punkt obrotu) w pozycji `at` (układ modelu), podpięta pod `parent`. */
-  pivot(name: string, parent: string, at: V3): this {
+  pivot(name: string, parent: string, atIn: V3): this {
     if (this.recs.has(name)) throw new Error(`pivot "${name}" already exists`);
     const p = this.recs.get(parent);
     if (!p) throw new Error(`unknown parent pivot "${parent}"`);
+    const at = this.tp(atIn);
     const k = this.k;
     const rec: PivotRec = { name, parent, abs: [at[0] * k, at[1] * k, at[2] * k], obj: new THREE.Group(), boxes: [] };
     rec.obj.name = name;
@@ -177,9 +217,11 @@ export class ModelBuilder {
   }
 
   /** Kostka o rozmiarze `size` i środku `center` (układ modelu), przypisana do części `pivot`. */
-  box(pivot: string, size: V3, center: V3, color: string, opts: BoxOpts = {}): this {
+  box(pivot: string, sizeIn: V3, centerIn: V3, color: string, opts: BoxOpts = {}): this {
     const p = this.recs.get(pivot);
     if (!p) throw new Error(`unknown pivot "${pivot}"`);
+    const size = this.ts(sizeIn);
+    const center = this.tp(centerIn);
     const k = this.k;
     p.boxes.push({
       size: [size[0] * k, size[1] * k, size[2] * k],
@@ -216,10 +258,14 @@ export class ModelBuilder {
         par.obj.add(rec.obj);
       }
       // Podział kostek na siatki.
-      const buckets = new Map<string, { boxes: BoxRec[]; mat: THREE.MeshLambertMaterial; kind: 'base' | 'other' | 'group'; name?: string; group?: string }>();
+      const buckets = new Map<
+        string,
+        { boxes: BoxRec[]; mat: THREE.Material; kind: 'base' | 'other' | 'group'; name?: string; group?: string; groupMat?: THREE.MeshLambertMaterial }
+      >();
       for (const b of rec.boxes) {
         let key: string;
-        let mat: THREE.MeshLambertMaterial;
+        let mat: THREE.Material;
+        let groupMat: THREE.MeshLambertMaterial | undefined;
         let kind: 'base' | 'other' | 'group' = 'other';
         if (b.opts.name) {
           key = `name:${b.opts.name}`;
@@ -235,14 +281,15 @@ export class ModelBuilder {
             ownedMaterials.push(gm);
           }
           mat = gm;
+          groupMat = gm;
           kind = 'group';
         } else if (b.opts.mat) {
           key = `mat:${b.opts.mat.uuid}`;
           mat = b.opts.mat;
         } else if (b.opts.glow !== undefined) {
-          const hex = `#${b.color.getHexString()}`;
-          key = `glow:${hex}:${b.opts.glow}`;
-          mat = glowMaterial(hex, b.opts.glow);
+          // wszystkie świecące kostki części → jedna siatka (kolory HDR w wierzchołkach)
+          key = 'glow';
+          mat = glowVertexMaterial();
         } else {
           key = 'base';
           mat = this.base;
@@ -250,7 +297,7 @@ export class ModelBuilder {
         }
         let bucket = buckets.get(key);
         if (!bucket) {
-          bucket = { boxes: [], mat, kind, name: b.opts.name, group: b.opts.group };
+          bucket = { boxes: [], mat, kind, name: b.opts.name, group: b.opts.group, groupMat };
           buckets.set(key, bucket);
         }
         bucket.boxes.push(b);
@@ -268,10 +315,10 @@ export class ModelBuilder {
         meshes.push(mesh);
         if (bucket.kind === 'base') baseMeshes.push(mesh);
         if (bucket.name) named.set(bucket.name, mesh);
-        if (bucket.kind === 'group' && bucket.group) {
+        if (bucket.kind === 'group' && bucket.group && bucket.groupMat) {
           let g = groups.get(bucket.group);
           if (!g) {
-            g = { mat: bucket.mat, meshes: [] };
+            g = { mat: bucket.groupMat, meshes: [] };
             groups.set(bucket.group, g);
           }
           g.meshes.push(mesh);

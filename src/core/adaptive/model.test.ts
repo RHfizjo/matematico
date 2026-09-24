@@ -449,6 +449,31 @@ describe('opanowanie, mediana, koszyki', () => {
     expect(factMastery(m, 'mul:7x8')).toBeCloseTo(0.45);
   });
 
+  it('factMastery nieoglądanego faktu: priorytet kategorii z największą liczbą dowodów (n), stan przed brakiem stanu', () => {
+    const m = createSkillModel();
+    const cs = (n: number, prior: number) => ({ recentMs: [], n, nOk: 0, m: prior, prior });
+    // Tylko mul.t8 ma stan (np. priorytet z kalibracji, n = 0) → wygrywa z mul.t7 bez stanu.
+    m.categories['mul.t8'] = cs(0, 0.8);
+    expect(factMastery(m, 'mul:7x8')).toBe(0.8);
+    expect(factMastery(m, 'mul:8x7')).toBe(0.8);
+    // Obie ze stanem: większe n wygrywa.
+    m.categories['mul.t7'] = cs(1, 0.2);
+    expect(factMastery(m, 'mul:7x8')).toBe(0.2);
+    m.categories['mul.t8'] = cs(5, 0.8);
+    expect(factMastery(m, 'mul:7x8')).toBe(0.8);
+    // Remis → pierwsza kategoria faktu (mul.t7).
+    m.categories['mul.t7'] = cs(5, 0.2);
+    expect(factMastery(m, 'mul:8x7')).toBe(0.2);
+    // Fakt ze stanem — zawsze własne m.
+    m.facts['mul:7x8'] = { m: 0.42, lt: null, n: 0, nOk: 0, box: 0, lastSeenAt: 0, lastSeenSession: 0, helped: 0, last2: [] };
+    expect(factMastery(m, 'mul:7x8')).toBe(0.42);
+    // Pierwsza próba nieoglądanego faktu startuje z tego samego priorytetu.
+    const fresh = createSkillModel();
+    fresh.categories['mul.t9'] = cs(3, 0.1);
+    recordAttempt(fresh, factAttempt('mul:6x9', { correct: false }), T0);
+    expect(fresh.facts['mul:6x9']?.m).toBeCloseTo(0.1 * 0.5);
+  });
+
   it('categoryMastery faktowej = średnia faktów (z priorytetami)', () => {
     const m = createSkillModel();
     expect(categoryMastery(m, 'mul.t7', S20)).toBeCloseTo(

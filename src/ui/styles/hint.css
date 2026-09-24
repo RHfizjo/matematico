@@ -45,7 +45,8 @@
 .hint-foot { display: flex; justify-content: flex-end; }
 .ui-root .hint-next { position: relative; overflow: hidden; min-width: 250px; }
 .hint-next-fill {
-  position: absolute; inset: 0; background: rgba(255, 255, 255, 0.3); transform-origin: left center; transform: scaleX(0);
+  position: absolute; left: 10px; right: 10px; bottom: 8px; height: 7px; border-radius: 4px;
+  background: rgba(255, 255, 255, 0.85); transform-origin: left center; transform: scaleX(0);
   animation: hint-fill linear forwards;
 }
 .hint-next > :not(.hint-next-fill) { position: relative; }
@@ -63,18 +64,15 @@
 .nl-compact .nl-arc { stroke-width: 6; }
 .nl-arc-plus { stroke: #2fb35a; }
 .nl-arc-minus { stroke: #ff7a45; }
-.nl-jumptag { transition: opacity 220ms ease; }
 .nl-jumptag rect { fill: #2fb35a; stroke: var(--ink); stroke-width: 3; }
 .nl-jumptag.minus rect { fill: #ff7a45; }
 .nl-jumptag text { fill: #fff; font-weight: 900; text-anchor: middle; dominant-baseline: central; }
-.nl-pill { transition: opacity 220ms ease; }
 .nl-pill-bg { fill: #fff; stroke: var(--ink); stroke-width: 3; }
 .nl-pill-t { fill: var(--ink); font-weight: 900; text-anchor: middle; dominant-baseline: central; }
 .nl-dot { fill: #fff; stroke: var(--ink); stroke-width: 3; }
 .nl-start .nl-pill-bg, .nl-start .nl-dot { fill: var(--primary); }
 .nl-start .nl-pill-t { fill: #fff; }
 .nl-end .nl-pill-bg, .nl-end .nl-dot { fill: #ffd23f; }
-.nl-hidden { opacity: 0; }
 .nl-hopper-body { fill: #ffd23f; stroke: var(--ink); stroke-width: 3.5; }
 .nl-hopper-eye { fill: var(--ink); }
 
@@ -89,3 +87,5 @@
 }
 .cube-hl { background: linear-gradient(145deg, #fff09a, #ffd23f 60%, #e5a800); }
 .cube-hidden { opacity: 0; transform: translateY(-16px) scale(0.5); }
+.hint-blocks .hint-summary { font-size: 30px; }
+.hint-blocks .hint-step { font-size: 30px; }

@@ -24,6 +24,17 @@ export const SAVE_LIMITS = {
   /** Limit stały w sekundach (tryb 'fixed'). */
   fixedSecMin: 3,
   fixedSecMax: 60,
+  /** Maks. liczba kopii jednej karty w kolekcji. */
+  cardMax: 99,
+  /**
+   * Minimalna liczba kopii karty startowej: handlarz zabiera tylko zapas ponad 3 kopie w talii
+   * (GDD 9.5a), więc poprawna gra nigdy nie schodzi poniżej — a bez tych kart nie da się walczyć.
+   */
+  starterCardMin: 3,
+  /** Pnącza bossa (faza 2) zachowane w przerwanej walce. */
+  vinesMax: 10,
+  /** HP bohatera przenoszone między pokojami dungeonu. */
+  heroHpMax: 999,
   /** Długość identyfikatorów tekstowych (pokoje, skrzynie). */
   idMaxLength: 100,
 } as const;

@@ -21,7 +21,7 @@
 .ui-root .btn-primary { background: linear-gradient(#5db8ff, var(--primary) 60%, #2f93e8); border-color: var(--ink); text-shadow: 0 2px 0 rgba(31, 42, 68, 0.3); }
 .ui-root .btn-good { background: linear-gradient(#63de8a, var(--good) 60%, #2cb85c); border-color: var(--ink); text-shadow: 0 2px 0 rgba(31, 42, 68, 0.3); }
 .ui-root .btn-ghost { background: rgba(255, 250, 240, 0.9); }
-.ui-root .btn .icon { width: 1.15em; height: 1.15em; }
+.btn .icon { width: 1.15em; height: 1.15em; }
 .btn-in { display: inline-flex; align-items: center; justify-content: center; gap: 12px; }
 
 /* Zaciemnienie */

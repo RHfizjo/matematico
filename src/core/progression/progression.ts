@@ -9,6 +9,10 @@ import { isCategoryAvailable } from '../math/categories';
 export const MAX_STAGE = 4;
 /** Próg średniego opanowania kategorii etapu do awansu (GDD 6.5). */
 export const STAGE_UP_MASTERY = 0.7;
+/** Najwyższy etap startowy po kalibracji — Ł4 trzeba wygrać grą (awans przez shouldStageUp). */
+export const START_STAGE_MAX = 3;
+/** Minimalna liczba prób kategorii (CategoryState.n), by uznać ją za rzeczywisty dowód przy starcie. */
+export const START_EVIDENCE_MIN = 2;
 
 /** Ostatnia deska ratunku, gdy nic nie jest dostępne (np. rodzic wyłączył wszystkie działania). */
 export const FINAL_FALLBACK: CategoryId[] = ['add.within10'];
@@ -26,6 +30,10 @@ const e = (c: CategoryId, when?: (s: ParentSettings) => boolean): StageEntry => 
 /** Nowe kategorie na każdym etapie (indeks 0 = etap 1). Pula etapu = suma etapów 1..n. */
 const LAND_STAGES: Record<LandId, readonly (readonly StageEntry[])[]> = {
   // GDD 6.5; add.2d wymaga zakresu 100 (minRange), przekraczanie 10 — przełącznik rodzica.
+  // ZNANE OGRANICZENIE: GDD 6.5 — Ł2 „podwajanie do 5+5”, Ł3 „do 10+10”. Przy zakresie ≥ 20 pula
+  // add.doubles obejmuje od Ł2 wszystkie a + a ≤ 20 (factsOf filtruje tylko zakresem). Kategorie nie
+  // wyrażą limitu etapu, a TaskRequest (types.ts) nie ma filtra faktów — potrzebna zmiana kontraktu
+  // (np. TaskRequest.maxResult albo osobna kategoria podwajania do 10).
   meadow: [
     [e('add.within10')],
     [e('add.complement10'), e('add.doubles')],
@@ -285,9 +293,45 @@ export function shouldStageUp(args: StageMasteryArgs & { stage: number }): boole
   return isMastered({ ...args, stage });
 }
 
-/** Etap startowy po kalibracji: najwyższy etap, którego wszystkie wcześniejsze etapy są opanowane. */
-export function startingStageFromMastery(args: StageMasteryArgs): number {
+/**
+ * Kategorie „własne” etapu (nowe na tym etapie), przefiltrowane przez ustawienia; gdy żadna nie jest
+ * dostępna — cała pula etapu (żeby dowód nie był niemożliwy z powodu ustawień).
+ */
+export function stageOwnCategories(land: LandId, stage: number, settings: ParentSettings): CategoryId[] {
+  const s = clampStage(stage);
+  const own: CategoryId[] = [];
+  for (const entry of LAND_STAGES[land][s - 1] ?? []) {
+    if (entry.when !== undefined && !entry.when(settings)) continue;
+    if (!own.includes(entry.c) && isCategoryAvailable(entry.c, settings)) own.push(entry.c);
+  }
+  return own.length > 0 ? own : stageCategories(land, s, settings);
+}
+
+export interface StartingStageArgs extends StageMasteryArgs {
+  /**
+   * Liczba prób kategorii (np. CategoryState.n z modelu ucznia). Gdy podana, awans ponad etap wymaga,
+   * by co najmniej jedna własna kategoria etapu miała ≥ START_EVIDENCE_MIN prób (opanowanie z samych
+   * priorytetów to nie dowód). Bez niej — tylko próg opanowania (zgodność wstecz).
+   */
+  evidence?: (c: CategoryId) => number;
+}
+
+function hasEvidence(args: StartingStageArgs, stage: number): boolean {
+  const { evidence } = args;
+  if (evidence === undefined) return true;
+  return stageOwnCategories(args.land, stage, args.settings).some((c) => {
+    const n = evidence(c);
+    return Number.isFinite(n) && n >= START_EVIDENCE_MIN;
+  });
+}
+
+/**
+ * Etap startowy po kalibracji (ostrożnie): awans ponad etap k, gdy pula etapu k ma opanowanie ≥ 0,7
+ * ORAZ (przy podanym `evidence`) co najmniej jedna własna kategoria etapu k ma ≥ 2 próby.
+ * Nigdy powyżej START_STAGE_MAX (3) — etap 4 zdobywa się grą.
+ */
+export function startingStageFromMastery(args: StartingStageArgs): number {
   let stage = 1;
-  while (stage < MAX_STAGE && isMastered({ ...args, stage })) stage++;
+  while (stage < START_STAGE_MAX && isMastered({ ...args, stage }) && hasEvidence(args, stage)) stage++;
   return stage;
 }

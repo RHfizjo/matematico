@@ -201,7 +201,7 @@ export function confirmDialog(ctx: UiContext, text: string, yes = 'Tak', no = 'N
 
 // ───────────────────────────── pause ─────────────────────────────
 
-const QUALITY_LABEL: Record<QualityLevel | 'auto', string> = { auto: 'Automatyczna', low: 'Niska', medium: 'Średnia', high: 'Wysoka' };
+const QUALITY_LABEL: Record<QualityLevel | 'auto', string> = { auto: 'auto', low: 'niska', medium: 'średnia', high: 'wysoka' };
 
 /** Menu pauzy. Po wyborze 'quality' menu zostaje chwilę na ekranie — ponowne pause() podmienia je bez mrugnięcia. */
 export function createPause(ctx: UiContext) {
@@ -240,7 +240,7 @@ export function createPause(ctx: UiContext) {
         h('div', { class: 'pause-title' }, icon('pause'), h('span', null, 'Pauza')),
         row('play', 'Wróć do gry', 'resume', 'btn-primary btn-big pause-btn'),
         vm.canReturnToBase ? row('home', 'Wróć do bazy', 'base', 'btn-big pause-btn') : null,
-        row('sparkles', h('span', null, 'Grafika: ', h('b', null, QUALITY_LABEL[vm.quality])), 'quality', 'btn-big pause-btn pause-quality'),
+        row('sparkles', h('span', null, 'Jakość grafiki: ', h('b', null, QUALITY_LABEL[vm.quality])), 'quality', 'btn-big pause-btn pause-quality'),
         row('lock', 'Rodzic', 'parent', 'btn-ghost pause-btn pause-parent'),
       );
       root.append(panel);

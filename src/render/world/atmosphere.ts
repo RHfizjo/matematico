@@ -446,7 +446,9 @@ export class Atmosphere {
       this.fogExp.density = (L.fogDensity * 1.3) / this.viewDistance;
       this.scene.fog = this.fogExp;
     }
-    this.scene.background = this.outdoor ? null : L.fog.clone();
+    if (this.outdoor) this.scene.background = null;
+    else if (this.scene.background instanceof THREE.Color) this.scene.background.copy(L.fog);
+    else this.scene.background = L.fog.clone();
   }
 
   get exposure(): number {
@@ -458,11 +460,19 @@ export class Atmosphere {
   get saturation(): number {
     return this.live.saturation;
   }
-  get fireflies(): { strength: number; color: THREE.Color } {
-    return { strength: this.live.fireflies, color: this.live.fireflyColor };
+  /** Świetliki: siła 0..1 i kolor (bez alokacji — wołane co klatkę). */
+  get fireflyStrength(): number {
+    return this.live.fireflies;
   }
-  get grade(): { mul: THREE.Color; lift: THREE.Color } {
-    return { mul: this.live.gradeMul, lift: this.live.gradeLift };
+  get fireflyColor(): THREE.Color {
+    return this.live.fireflyColor;
+  }
+  /** Korekcja barw pory dnia: mnożnik kanałów i podniesienie cieni. */
+  get gradeMul(): THREE.Color {
+    return this.live.gradeMul;
+  }
+  get gradeLift(): THREE.Color {
+    return this.live.gradeLift;
   }
   get fogColor(): THREE.Color {
     return this.live.fog;

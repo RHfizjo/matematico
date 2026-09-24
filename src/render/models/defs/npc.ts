@@ -5,7 +5,7 @@
 import { TAU, bump, envelope } from '../anim';
 import { bodyMotion } from '../motion';
 import type { ModelDef } from './common';
-import { cheeks, eyePair, WHITE } from './common';
+import { cheeks, eyePair, sparkleMotion, sparkles, WHITE } from './common';
 
 const CARD = '#c8965a';
 const CARD_DARK = '#a8743f';
@@ -13,6 +13,7 @@ const CARD_EDGE = '#b5824b';
 const TAPE = '#e8cf9f';
 const INSIDE = '#6e4a2a';
 const STACHE = '#3b2314';
+const GOLD_GLINT = '#ffe066';
 
 export const kartonini: ModelDef = {
   height: 1.45,
@@ -87,6 +88,18 @@ export const kartonini: ModelDef = {
       b.box('cards', [0.15, 0.22, 0.012], [cx, cy, z + 0.004], '#fffaf0', { rot: [0, 0, a], shade: 1 });
       b.box('cards', [0.06, 0.06, 0.012], [cx - Math.sin(a) * 0.02, cy + Math.cos(a) * 0.02, z + 0.008], c, { rot: [0, 0, a + 0.785], shade: 1 });
     }
+    // Kartonini to przyjazny brainglam (GDD 9.5a): odrobina brokatu wokół i złoty błysk rzadkiej karty
+    {
+      // błysk w górnym rogu przedniej karty (k = 4, obrót a = −0,6)
+      const a = -0.6;
+      const cx = -0.3 - Math.sin(a) * 0.15;
+      const cy = 0.55 + Math.cos(a) * 0.15;
+      const gx = cx - Math.sin(a) * 0.1 + Math.cos(a) * 0.06;
+      const gy = cy + Math.cos(a) * 0.1 + Math.sin(a) * 0.06;
+      b.box('cards', [0.05, 0.05, 0.012], [gx, gy, 0.44 + 4 * 0.014 + 0.014], GOLD_GLINT, { rot: [0, 0, 0.785], glow: 2.2 });
+    }
+    b.pivot('sparkles', 'all', [0, 0, 0]);
+    sparkles(b, { count: 5, radius: 0.72, y0: 0.7, y1: 1.55, size: 0.05, seed: 17 });
   },
   motions: () => [
     bodyMotion({ amp: 1, wob: 0, walk: 'stride', h: 1.45, gait: 1.8 }),
@@ -135,5 +148,6 @@ export const kartonini: ModelDef = {
           break;
       }
     },
+    sparkleMotion,
   ],
 };

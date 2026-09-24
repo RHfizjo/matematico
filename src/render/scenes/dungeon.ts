@@ -12,6 +12,10 @@ import type { SceneBuild } from './types';
 import { FACING_CAMERA, SCREEN_RIGHT, SCREEN_UP } from '../constants';
 
 const F = 10; // y najwyższej kostki podłogi
+/** Skała wokół pokoju (boki) — stała kamera nie może zajrzeć w pustkę za krawędzią planszy. */
+const SIDE = 12;
+/** Pas przed pokojem (od strony kamery): niski brzeg, ścieżka wejścia i skalny grzbiet na dole kadru. */
+const FRONT = 10;
 
 export function buildDungeonRoom(seed: number, kind: RoomKind, index: number): SceneBuild {
   const b = new SceneBuilder('dungeon-room', (seed ^ (index * 7919 + 13)) >>> 0);
@@ -25,42 +29,44 @@ export function buildDungeonRoom(seed: number, kind: RoomKind, index: number): S
   const z1 = D / 2 - 1;
   const wallH = boss ? 7 : 6;
 
-  // ── Podłoga z plamami mchu, kamieni i ziemi.
-  for (let z = z0 - 4; z <= z1 + 2; z++)
-    for (let x = x0 - 4; x <= x1 + 4; x++) {
+  // ── Podłoga: łagodne plamy mchu, bruku i żwiru (dwa pola szumu — bez pojedynczych „kratek”).
+  for (let z = z0 - 4; z <= z1 + FRONT; z++)
+    for (let x = x0 - SIDE; x <= x1 + SIDE; x++) {
       for (let y = F - 3; y <= F; y++) b.world.set(x, y, z, y === F - 3 ? B.stone : B.dirt);
-      const n = fbm2(x * 0.11, z * 0.11, s + 3, 3);
-      const r = hash2(x, z, s);
+      const moss = fbm2(x * 0.09, z * 0.09, s + 3, 3);
+      const rock = fbm2(x * 0.13 + 40, z * 0.13 - 17, s + 8, 2);
       let top: number = B.caveFloor;
-      if (n > 0.58 || (boss && n > 0.5)) top = B.caveMoss;
-      else if (n > 0.54 && r < 0.5) top = B.caveMoss;
-      else if (n < 0.27) top = B.cobble;
-      else if (n < 0.31 && r < 0.5) top = B.cobble;
+      if (moss > (boss ? 0.52 : 0.58)) top = B.caveMoss;
+      else if (rock < 0.3) top = B.cobble;
+      else if (rock > 0.72) top = B.gravel;
       b.world.set(x, F, z, top);
     }
 
   // ── Ściany: tył (północ) wysoki, boki opadają ku kamerze, przód — niski brzeg z korzeni.
+  // Materiały z szumu (spójne płaty ziemi, korzeni i kamienia; wierzch: mech lub korzenie) — z góry nie ma szachownicy.
   const wallCol = (x: number, z: number, h: number): void => {
+    const band = fbm2(x * 0.22, z * 0.22, s + 11, 2);
+    const roots = fbm2(x * 0.16 + 9, z * 0.45, s + 12, 2) > 0.6;
+    const topMoss = fbm2(x * 0.2 + 3, z * 0.2 + 5, s + 13, 2) > 0.4;
     for (let y = F + 1; y <= F + h; y++) {
-      const r = hash2(x * 7 + y, z * 3, s + 11);
-      const rootCol = hash2(x, z * 13, s + 12) < 0.22;
-      let id: number = y <= F + 1 ? (r < 0.5 ? B.stone : B.cobble) : rootCol ? B.root : r < 0.08 ? B.stone : B.dirt;
-      if (y === F + h) id = r < 0.75 ? B.caveMoss : B.root;
+      let id: number = y <= F + 1 ? (band < 0.5 ? B.stone : B.cobble) : roots ? B.root : band < 0.34 ? B.stone : B.dirt;
+      if (y === F + h) id = topMoss ? B.caveMoss : B.root;
       b.world.set(x, y, z, id);
     }
   };
-  for (let x = x0 - 4; x <= x1 + 4; x++)
+  for (let x = x0 - SIDE; x <= x1 + SIDE; x++)
     for (let z = z0 - 4; z < z0; z++) {
       const h = wallH + Math.round((fbm2(x * 0.3, z * 0.3, s + 5, 2) - 0.5) * 3) - (z === z0 - 1 && hash2(x, z, s + 2) < 0.3 ? 1 : 0);
       wallCol(x, z, Math.max(3, h));
     }
-  for (let z = z0; z <= z1 + 2; z++) {
-    const t = (z - z0) / (z1 - z0 + 2); // 0 z tyłu → 1 z przodu
+  for (let z = z0; z <= z1 + FRONT; z++) {
+    const t = Math.min(1, (z - z0) / (z1 - z0 + 2)); // 0 z tyłu → 1 z przodu
     for (const side of [-1, 1]) {
-      for (let k = 0; k < 4; k++) {
+      for (let k = 0; k < SIDE; k++) {
         const x = side < 0 ? x0 - 1 - k : x1 + 1 + k;
-        const base = Math.round(wallH * (1 - t * 0.8)) + (k > 1 ? 1 : 0);
-        const h = Math.max(1, base + (hash2(x, z, s + 17) < 0.15 ? 1 : 0));
+        // Dalej od pokoju skała nieco wyżej (tło), przy pokoju niżej — nic nie zasłania bohatera.
+        const base = Math.round(wallH * (1 - t * 0.8)) + (k > 1 ? 1 : 0) + Math.floor(k / 5);
+        const h = Math.max(1, base + Math.round((fbm2(x * 0.35, z * 0.35, s + 17, 2) - 0.5) * 2));
         wallCol(x, z, h);
       }
     }
@@ -70,6 +76,19 @@ export function buildDungeonRoom(seed: number, kind: RoomKind, index: number): S
     if (Math.abs(x + 0.5) < 2) continue;
     if (hash2(x, 99, s) < 0.7) b.world.set(x, F + 1, z1 + 1, hash2(x, 98, s) < 0.5 ? B.root : B.caveMoss);
   }
+  // Pas przed pokojem: ścieżka wejścia (żwir) i skalny grzbiet rosnący ku dołowi kadru (daleko od bohatera,
+  // więc go nie zasłania; zamyka kadr zamiast pustki).
+  for (let z = z1 + 2; z <= z1 + FRONT; z++)
+    for (let x = x0; x <= x1; x++) {
+      const pathHalf = 1.6 + fbm2(z * 0.4, 3, s + 19, 2);
+      if (Math.abs(x + 0.5) < pathHalf) {
+        b.world.set(x, F, z, B.gravel);
+        continue;
+      }
+      const dz = z - (z1 + 1);
+      const h = Math.round(Math.max(0, (dz - 2) * 0.45 + (fbm2(x * 0.3, z * 0.3, s + 23, 2) - 0.5) * 2.2));
+      if (h > 0) wallCol(x, z, Math.min(4, h));
+    }
 
   // ── Wyjście: przejście w tylnej ścianie z latarniami.
   for (let y = F + 1; y <= F + 3; y++)
@@ -95,18 +114,20 @@ export function buildDungeonRoom(seed: number, kind: RoomKind, index: number): S
     const cz = edge === 2 ? b.rng.range(z0 + 0.4, z0 + 1.8) : b.rng.range(z0 + 0.5, z1 - 2);
     if (b.isReserved(cx, cz)) continue;
     const crystal = b.rng.chance(0.4);
-    const col = crystal ? b.rng.pick(['#a58dff', '#7fe3ff', '#ff9ee0']) : b.rng.pick(['#7cf0ff', '#b99bff', '#9dffb0']);
+    const col = crystal ? b.rng.pick(['#a58dff', '#7fe3ff', '#ff9ee0']) : b.rng.pick(['#46d8ff', '#a47bff', '#5ef08a']);
     const n = b.rng.int(3, 6);
     for (let k = 0; k < n; k++) b.foliageAt(crystal ? 'crystal' : 'mushroom', cx + b.rng.range(-0.8, 0.8), cz + b.rng.range(-0.8, 0.8), col, b.rng.range(0.8, 1.5));
   }
   // Kryształy w ścianach (jak żyły rudy) i grzybki na szczytach ścian (widoczne z góry).
-  for (let x = x0 - 3; x <= x1 + 3; x++)
-    for (let z = z0 - 3; z <= z1; z++) {
-      if (x >= x0 && x <= x1 && z >= z0) continue;
+  for (let x = x0 - SIDE + 1; x <= x1 + SIDE - 1; x++)
+    for (let z = z0 - 3; z <= z1 + FRONT - 1; z++) {
+      if (x >= x0 && x <= x1 && z >= z0 && z <= z1 + 1) continue;
       const t = b.top(x, z);
+      if (t <= F) continue;
+      const far = Math.max(x0 - x, x - x1, 0) > 5 || z > z1 + 5;
       const r = hash2(x, z, s + 29);
-      if (r < 0.05) b.foliageAt('mushroom', x + 0.5, z + 0.5, hash2(z, x, s) < 0.5 ? '#7cf0ff' : '#ff9ee0', 1.4);
-      else if (r < 0.08 && t > F + 2) b.world.set(x, t - 1, z, hash2(z, x, s + 1) < 0.5 ? B.crystal : B.pinkCrystal);
+      if (r < (far ? 0.025 : 0.05)) b.foliageAt('mushroom', x + 0.5, z + 0.5, hash2(z, x, s) < 0.5 ? '#46d8ff' : '#ff7fd0', 1.3);
+      else if (r < (far ? 0.045 : 0.08) && t > F + 2) b.world.set(x, t - 1, z, hash2(z, x, s + 1) < 0.5 ? B.crystal : B.pinkCrystal);
     }
 
   // Stalagmity.
@@ -139,8 +160,8 @@ export function buildDungeonRoom(seed: number, kind: RoomKind, index: number): S
     // Arena: krąg ubitej ziemi otoczony (przerywanym) pierścieniem kamieni.
     const ar = boss ? 6.5 : 5.2;
     b.disc(C.x, C.z, ar + 1.2, (x, z, d) => {
-      if (d < ar - 0.6) b.setTop(x, z, B.caveFloor);
-      else if (d < ar + 0.5 && hash2(x, z, s + 41) < 0.7) b.setTop(x, z, hash2(z, x, s) < 0.6 ? B.cobble : B.mossyStone);
+      if (d < ar - 0.6) b.setTop(x, z, d > ar - 1.6 || hash2(x, z, s + 41) > 0.12 ? B.caveFloor : B.gravel);
+      else if (d < ar + 0.5) b.setTop(x, z, hash2(z, x, s) < 0.72 ? B.stoneBrick : B.mossyStone);
     });
   }
   // Kamyczki i korzenie na podłodze (żeby duża płaszczyzna nie była pusta).

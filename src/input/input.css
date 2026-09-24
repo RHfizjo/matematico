@@ -1,0 +1,138 @@
+/* Warstwa sterowania dotykiem (src/input): pływająca gałka, przycisk akcji, pauza.
+ * z-index 15: nad HUD (10), pod kartami/panelami (20+). */
+
+.input-layer {
+  position: absolute; inset: 0; z-index: 15; pointer-events: none; touch-action: none;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  font-family: var(--font, 'Nunito', system-ui, sans-serif); color: var(--ink, #1f2a44);
+}
+.input-layer > * { transition: opacity 200ms ease, visibility 0s linear 0s; }
+.input-layer.is-ui > * { opacity: 0 !important; visibility: hidden; pointer-events: none !important; transition: opacity 180ms ease, visibility 0s linear 180ms; }
+
+/* Obszar gałki: lewe 45% ekranu. Przezroczysty. */
+.in-zone { position: absolute; left: 0; top: 0; bottom: 0; width: 45%; pointer-events: auto; touch-action: none; }
+
+/* Gałka: podstawa + drążek. Pozycję ustawia JS (transform). */
+.in-stick {
+  position: absolute; left: 0; top: 0; width: 140px; height: 140px; pointer-events: none;
+  will-change: transform, opacity; opacity: 0.5;
+  transition: opacity 220ms ease, transform 260ms cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+.in-stick.is-active { opacity: 1; transition: opacity 90ms ease; }
+.in-stick.is-hidden { opacity: 0; }
+.in-stick-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.16) 0 52%, rgba(255, 255, 255, 0.34) 53% 100%);
+  border: 4px solid rgba(31, 42, 68, 0.55);
+  box-shadow: 0 5px 0 rgba(31, 42, 68, 0.16), inset 0 0 0 3px rgba(255, 255, 255, 0.45);
+  transition: background 150ms ease, border-color 150ms ease;
+}
+.in-stick.is-active .in-stick-ring {
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.22) 0 52%, rgba(255, 255, 255, 0.5) 53% 100%);
+  border-color: rgba(31, 42, 68, 0.75);
+}
+.in-stick-arrow {
+  position: absolute; left: 50%; top: 50%; width: 0; height: 0; margin: -9px 0 0 -11px;
+  border-left: 11px solid transparent; border-right: 11px solid transparent; border-bottom: 13px solid rgba(31, 42, 68, 0.42);
+}
+.in-stick-arrow.a-up { transform: translateY(-46px); }
+.in-stick-arrow.a-down { transform: translateY(46px) rotate(180deg); }
+.in-stick-arrow.a-left { transform: translateX(-46px) rotate(-90deg); }
+.in-stick-arrow.a-right { transform: translateX(46px) rotate(90deg); }
+.in-stick-knob {
+  position: absolute; left: 50%; top: 50%; width: 72px; height: 72px; margin: -36px 0 0 -36px; border-radius: 50%;
+  background: radial-gradient(circle at 36% 30%, #ffffff 0 12%, #9fd6ff 13% 30%, #3fa7ff 70%, #1e78c8 100%);
+  border: 4px solid var(--ink, #1f2a44);
+  box-shadow: 0 5px 0 rgba(31, 42, 68, 0.3), 0 10px 18px rgba(31, 42, 68, 0.22);
+  will-change: transform;
+}
+.in-stick:not(.is-active) .in-stick-knob { transition: transform 200ms cubic-bezier(0.2, 1.4, 0.4, 1); }
+
+/* Podpowiedź przy pierwszym użyciu: rączka „przesuń palcem” nad gałką spoczynkową. */
+.in-stick-hint {
+  position: absolute; left: 50%; top: -58px; transform: translateX(-50%); white-space: nowrap;
+  font: 900 20px/1 var(--font, 'Nunito', system-ui, sans-serif); color: var(--ink, #1f2a44);
+  background: rgba(255, 250, 240, 0.92); border: 3px solid var(--ink, #1f2a44); border-radius: 999px;
+  padding: 6px 14px 7px 10px; box-shadow: 0 3px 0 rgba(31, 42, 68, 0.18); display: flex; align-items: center; gap: 6px;
+  transition: opacity 200ms ease;
+}
+.in-stick-hint-hand { display: inline-block; font-size: 24px; animation: in-hand 1.6s ease-in-out infinite; }
+.in-stick.is-active .in-stick-hint, .in-stick.no-hint .in-stick-hint { opacity: 0; }
+.in-stick.no-hint .in-stick-hint { display: none; }
+.in-stick:not(.is-active):not(.no-hint) { opacity: 0.85; }
+@keyframes in-hand {
+  0%, 100% { transform: translateX(-4px) rotate(-8deg); }
+  50% { transform: translateX(6px) rotate(8deg); }
+}
+
+/* Pauza: lewy górny róg. */
+.in-pause {
+  position: absolute; top: var(--gutter, 32px); left: var(--gutter, 32px); width: 76px; height: 76px; padding: 0;
+  display: flex; align-items: center; justify-content: center; pointer-events: auto; touch-action: none; cursor: pointer;
+  background: rgba(255, 250, 240, 0.96); border: 4px solid var(--ink, #1f2a44); border-radius: 22px;
+  box-shadow: 0 5px 0 rgba(31, 42, 68, 0.22), 0 10px 22px rgba(31, 42, 68, 0.14);
+  transition: transform 90ms ease, box-shadow 90ms ease, opacity 200ms ease;
+}
+.in-pause svg { width: 36px; height: 36px; display: block; }
+.in-pause.is-pressed { transform: translateY(4px); box-shadow: 0 1px 0 rgba(31, 42, 68, 0.22); }
+.in-pause:focus-visible { outline: 4px solid var(--primary, #3fa7ff); outline-offset: 3px; }
+
+/* Przycisk akcji: prawy dolny róg, ikona + etykieta pod spodem. */
+.in-action-wrap {
+  position: absolute; right: calc(var(--gutter, 32px) + 28px); bottom: calc(var(--gutter, 32px) + 6px);
+  display: flex; flex-direction: column; align-items: center; pointer-events: none;
+}
+.in-action-wrap.is-off { visibility: hidden; }
+.in-action {
+  position: relative; width: 156px; height: 156px; padding: 0; border-radius: 50%; cursor: pointer;
+  pointer-events: auto; touch-action: none;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 36% 28%, #fffbe0 0 10%, #ffe27a 28%, #ffcf40 58%, #f2a100 100%);
+  border: 5px solid var(--ink, #1f2a44);
+  box-shadow: 0 8px 0 rgba(31, 42, 68, 0.32), 0 16px 30px rgba(31, 42, 68, 0.26), inset 0 -8px 0 rgba(214, 120, 0, 0.35);
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+.in-action::before {
+  content: ''; position: absolute; inset: -8px; border-radius: 50%; border: 6px solid rgba(255, 214, 80, 0.85);
+  animation: in-ring 1.8s ease-out infinite; pointer-events: none;
+}
+.in-action.is-pressed { transform: translateY(6px) scale(0.95); box-shadow: 0 2px 0 rgba(31, 42, 68, 0.32), 0 6px 14px rgba(31, 42, 68, 0.2), inset 0 -4px 0 rgba(214, 120, 0, 0.35); }
+.in-action:focus-visible { outline: 5px solid var(--primary, #3fa7ff); outline-offset: 4px; }
+.in-action-ic {
+  font: 400 76px/1 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
+  filter: drop-shadow(0 4px 0 rgba(31, 42, 68, 0.25)); transform: translateY(-2px);
+  pointer-events: none;
+}
+.in-action-label {
+  position: relative; z-index: 1; margin-top: -24px; min-width: 110px; text-align: center; white-space: nowrap;
+  font: 900 30px/1 var(--font, 'Nunito', system-ui, sans-serif); color: var(--ink, #1f2a44);
+  background: var(--paper, #fffaf0); border: 4px solid var(--ink, #1f2a44); border-radius: 999px;
+  padding: 7px 20px 9px; box-shadow: 0 4px 0 rgba(31, 42, 68, 0.22);
+  pointer-events: none;
+}
+.in-action-wrap.pop-in { animation: in-pop-in 380ms cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+.in-action-wrap.pop-out { animation: in-pop-out 200ms ease-in both; }
+.in-action-wrap.swap .in-action-ic, .in-action-wrap.swap .in-action-label { animation: in-swap 320ms cubic-bezier(0.2, 1.5, 0.4, 1); }
+
+@keyframes in-pop-in {
+  0% { opacity: 0; transform: scale(0.3) rotate(-14deg); }
+  60% { opacity: 1; transform: scale(1.1) rotate(4deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes in-pop-out {
+  0% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: scale(0.35) rotate(10deg); }
+}
+@keyframes in-swap {
+  0% { transform: scale(0.6); }
+  100% { transform: none; }
+}
+@keyframes in-ring {
+  0% { transform: scale(0.96); opacity: 0.9; }
+  80%, 100% { transform: scale(1.28); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .in-action::before, .in-stick-hint-hand { animation: none; }
+  .in-action-wrap.pop-in, .in-action-wrap.pop-out, .in-action-wrap.swap .in-action-ic, .in-action-wrap.swap .in-action-label { animation-duration: 1ms; }
+}

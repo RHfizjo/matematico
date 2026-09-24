@@ -5,7 +5,18 @@
 import type { Rng } from '../rng';
 import type { Attempt, CategoryId, FactId, Op, ParentSettings, SkillModel, Task } from '../types';
 import { CATEGORIES, generateTask, isCategoryAvailable, parseFact, tableOf } from '../math';
-import { attemptScore, categoryFacts, clamp, ensureCategory, isValidMs, recordAttempt, safePartner } from './model';
+import {
+  attemptScore,
+  categoryFacts,
+  clamp,
+  ensureCategory,
+  factCategories,
+  factPrior,
+  isValidMs,
+  learningRate,
+  recordAttempt,
+  safePartner,
+} from './model';
 import { DEFAULT_PRIORS, isKnownCategory } from './priors';
 
 /** Docelowa liczba zadań kalibracji. */
@@ -184,19 +195,49 @@ function median(xs: readonly number[]): number | null {
 
 const clampPrior = (x: number): number => clamp(x, PRIOR_MIN, PRIOR_MAX);
 
+/** Bliźniak (partner przemienny) utworzony przez kalibrację: startowe m i waga startu po aktualizacjach. */
+interface TwinTrace {
+  start: number;
+  /** Iloczyn (1 − α/2) po wszystkich aktualizacjach partnera — tyle startu zostaje w m. */
+  keep: number;
+}
+
 /**
- * Wyniki kalibracji: każda próba trafia do recordAttempt (bez planowania powtórek),
- * potem dla testowanych kategorii prior = 0.5·domyślny + 0.5·średni wynik s (poprawność
- * skorygowana szybkością względem mediany dziecka w danym działaniu); nietestowane kategorie
- * tego samego działania dostają przesunięcie (prior − domyślny) testowanych z tej samej grupy
- * (np. mul.t6 ← średnia z mul.t7/mul.t8), a bez testowanych w grupie — połowę średniego
- * przesunięcia w działaniu.
+ * Wyniki kalibracji: każda próba trafia do recordAttempt, potem dla testowanych kategorii
+ * prior = 0.5·domyślny + 0.5·średni wynik s (poprawność skorygowana szybkością względem mediany
+ * dziecka w danym działaniu). Próba liczy się TYLKO do kategorii, dla której zadanie wylosowano
+ * (a.categoryId — np. 2 × 8 z mul.t2 nie podnosi mul.t8; recordAttempt aktualizuje fakt i wszystkie
+ * jego kategorie normalnie). Nietestowane kategorie tego samego działania dostają przesunięcie
+ * (prior − domyślny) testowanych z tej samej grupy (np. mul.t6 ← średnia z mul.t7/mul.t8), a bez
+ * testowanych w grupie — połowę średniego przesunięcia w działaniu.
+ * Bliźniaki przemienne widziane tylko przez partnera (n = 0, np. 8 × 2 po 2 × 8) są przeliczane
+ * na nowy priorytet (factPrior po kalibracji) z zachowaniem aktualizacji od partnera.
+ * Na koniec regulator bez śladów kalibracji: okno, seria błędów, ostatnie zadania i powtórki = puste
+ * (błędy kalibracji nie planują powtórek w pierwszych zadaniach gry). Pusta lista prób nic nie zmienia.
  */
 export function applyCalibration(model: SkillModel, attempts: readonly Attempt[], _settings: ParentSettings): void {
-  const before = new Set(model.retries);
-  for (const a of attempts) recordAttempt(model, a, a.at);
-  // Kalibracja nie planuje powtórek (inaczej gra zaczęłaby się serią poprawek).
-  model.retries = model.retries.filter((r) => before.has(r));
+  if (attempts.length === 0) return;
+  const preexisting = new Set(Object.keys(model.facts));
+  const twins = new Map<FactId, TwinTrace>();
+  for (const a of attempts) {
+    // Ślad bliźniaka — te same warunki co aktualizacja partnera w recordAttempt.
+    const f = a.factId !== null && factCategories(a.factId).length > 0 ? a.factId : null;
+    const p = f !== null ? safePartner(f) : null;
+    if (f !== null && p !== null && factCategories(p).length > 0 && !preexisting.has(p)) {
+      let tr = twins.get(p);
+      if (tr === undefined && model.facts[p] === undefined) {
+        tr = { start: factPrior(model, p), keep: 1 };
+        twins.set(p, tr);
+      }
+      if (tr !== undefined) tr.keep *= 1 - learningRate(model.facts[f]?.n ?? 0, a.format) / 2;
+    }
+    recordAttempt(model, a, a.at);
+  }
+  // Regulator bez śladów kalibracji (inaczej gra zaczęłaby się bezpiecznikiem lub serią poprawek).
+  model.window = [];
+  model.errorStreak = 0;
+  model.recent = [];
+  model.retries = [];
 
   // Mediana czasu poprawnych odpowiedzi: per działanie, awaryjnie ogólna.
   const msByOp = new Map<Op, number[]>();
@@ -216,13 +257,10 @@ export function applyCalibration(model: SkillModel, attempts: readonly Attempt[]
     if (!isKnownCategory(a.categoryId)) continue;
     const op = CATEGORIES[a.categoryId].op;
     const s = attemptScore(a, median(msByOp.get(op) ?? []) ?? overall);
-    const cats = new Set<CategoryId>([a.categoryId]);
-    for (const c of a.categories) if (isKnownCategory(c)) cats.add(c);
-    for (const c of cats) {
-      const list = scores.get(c) ?? [];
-      list.push(s);
-      scores.set(c, list);
-    }
+    // Tylko kategoria, dla której zadanie wylosowano (nie wszystkie kategorie faktu).
+    const list = scores.get(a.categoryId) ?? [];
+    list.push(s);
+    scores.set(a.categoryId, list);
   }
 
   const delta = new Map<CategoryId, number>();
@@ -232,8 +270,18 @@ export function applyCalibration(model: SkillModel, attempts: readonly Attempt[]
     ensureCategory(model, c).prior = prior;
     delta.set(c, prior - DEFAULT_PRIORS[c]);
   }
-  if (delta.size === 0) return;
+  if (delta.size > 0) propagatePriors(model, delta);
 
+  // Bliźniaki bez własnych prób: start przesunięty na priorytet po kalibracji (wkład partnera zostaje).
+  for (const [p, tr] of twins) {
+    const st = model.facts[p];
+    if (st === undefined || st.n > 0) continue;
+    st.m = clamp(st.m + tr.keep * (factPrior(model, p) - tr.start), 0, 1);
+  }
+}
+
+/** Propagacja przesunięć priorytetów na nietestowane kategorie działania (grupy GROUPS). */
+function propagatePriors(model: SkillModel, delta: ReadonlyMap<CategoryId, number>): void {
   const meanDelta = (cs: readonly CategoryId[]): number | null => {
     const ds = cs.map((c) => delta.get(c)).filter((d): d is number => d !== undefined);
     return ds.length > 0 ? ds.reduce((x, y) => x + y, 0) / ds.length : null;

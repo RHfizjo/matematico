@@ -26,6 +26,7 @@ import {
   defaultDungeon,
   defaultLandProgress,
   defaultSettings,
+  starterCards,
   starterDigits,
   starterEquipment,
 } from './defaults';
@@ -38,10 +39,12 @@ import {
   NUMBER_RANGES,
   OPS,
   QUALITY_PRESETS,
+  STARTER_CARDS,
   STARTER_CREATURE,
   STARTER_EQUIPPED,
   TIME_LIMIT_MODES,
   isAttemptMode,
+  isCardId,
   isCategoryId,
   isCreatureId,
   isDistractorKind,
@@ -348,6 +351,26 @@ function normDigits(v: unknown): Digits {
   return out;
 }
 
+/**
+ * Karty (GDD 13.5). Brak kolekcji (zapis sprzed kart) → talia startowa. Nieznane id pomijane,
+ * liczby kopii całkowite 0..99. Karty startowe: brakujący wpis → liczba startowa, a posiadane
+ * nigdy poniżej 3 kopii (jak Plusik — bez nich nie da się walczyć; handlarz ich nie zabiera).
+ */
+function normCards(v: unknown): SaveV1['cards'] {
+  const ownedRaw = own(v, 'owned');
+  if (!isObj(ownedRaw)) return starterCards();
+  const owned: Record<string, number> = {};
+  for (const [k, n] of ownEntries(ownedRaw)) {
+    if (!isCardId(k) || !isNum(n)) continue;
+    owned[k] = int(n, 0, 0, L.cardMax);
+  }
+  for (const [id, start] of Object.entries(STARTER_CARDS)) {
+    const n = owned[id];
+    owned[id] = n === undefined ? start : Math.max(n, Math.min(start, L.starterCardMin));
+  }
+  return { owned };
+}
+
 function normCreatures(v: unknown, cycle: number, createdAt: number): OwnedCreature[] {
   if (!Array.isArray(v)) return [{ id: STARTER_CREATURE, level: 1, fedCycle: -1, caughtAt: createdAt }];
   const out: OwnedCreature[] = [];
@@ -434,7 +457,18 @@ function normDungeon(v: unknown): SaveV1['progress']['dungeon'] {
     roomIndex: int(own(v, 'roomIndex'), 0, 0, roomOrder.length),
     enemyCzar,
     bossPhase: int(own(v, 'bossPhase'), 1, 1, L.bossPhaseMax),
+    vines: int(own(v, 'vines'), 0, 0, L.vinesMax),
+    heroHp: normHeroHp(own(v, 'heroHp')),
   };
+}
+
+/**
+ * HP bohatera między pokojami: null = pełne; liczba > 0 → całkowita 1..999.
+ * HP ≤ 0 → null: bohater z zerowym HP jest ratowany przez stworki z pełnym HP (GDD 7.5) — tak samo
+ * traktują to recordBattleProgress i startCardBattle (wcześniej wczytanie dawało 1 HP).
+ */
+function normHeroHp(v: unknown): number | null {
+  return isNum(v) && v > 0 ? int(v, 1, 1, L.heroHpMax) : null;
 }
 
 function normProgress(v: unknown, createdAt: number): SaveV1['progress'] {
@@ -455,9 +489,10 @@ function normProgress(v: unknown, createdAt: number): SaveV1['progress'] {
     if (id !== null) chestSet.add(id);
   }
   const openedChests = [...chestSet];
+  const cycle = int(own(v, 'cycle'), 0);
 
   return {
-    cycle: int(own(v, 'cycle'), 0),
+    cycle,
     taskSinceReturn: bool(own(v, 'taskSinceReturn'), false),
     calibrated: bool(own(v, 'calibrated'), false),
     firstExpeditionDone: bool(own(v, 'firstExpeditionDone'), false),
@@ -467,6 +502,8 @@ function normProgress(v: unknown, createdAt: number): SaveV1['progress'] {
     chestPity: int(own(v, 'chestPity'), 0),
     dungeon: normDungeon(own(v, 'dungeon')),
     pendingBonusChest: bool(own(v, 'pendingBonusChest'), false),
+    // Oferta dnia nie mogła zostać kupiona w przyszłym cyklu.
+    merchantDailyCycle: int(own(v, 'merchantDailyCycle'), -1, -1, cycle),
   };
 }
 
@@ -532,6 +569,7 @@ function normalizeV1(o: Obj): SaveV1 {
     settings: normSettings(own(o, 'settings')),
     model: normModel(own(o, 'model')),
     inventory: { digits: normDigits(own(o, 'inventory')) },
+    cards: normCards(own(o, 'cards')),
     creatures: normCreatures(own(o, 'creatures'), progress.cycle, createdAt),
     equipment: normEquipment(own(o, 'equipment')),
     progress,

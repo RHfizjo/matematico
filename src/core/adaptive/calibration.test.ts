@@ -4,7 +4,8 @@ import type { Attempt, CategoryId, NumberRange, Op, Task } from '../types';
 import { createRng } from '../rng';
 import { CATEGORIES, categoriesOfFact, commutativePartner, isCategoryAvailable } from '../math';
 import { DEFAULT_PRIORS } from './priors';
-import { createSkillModel, factMastery } from './model';
+import { createSkillModel, factMastery, recordAttempt, startSession } from './model';
+import { DEFAULT_QUOTAS, pickTask, regulatedQuotas } from './scheduler';
 import { CALIBRATION_SIZE, applyCalibration, createCalibration } from './calibration';
 import { T0, attemptForTask, makeSettings } from './testkit';
 
@@ -143,7 +144,30 @@ describe('applyCalibration', () => {
     applyCalibration(m, answerAll(tasks, (_, i) => i % 2 === 0, () => 3000), settings);
     for (const t of tasks) if (t.factId !== null) expect(m.facts[t.factId]?.n).toBe(1);
     expect(m.retries).toEqual([]);
-    expect(m.window.length).toBeGreaterThan(0);
+  });
+
+  it('regulator bez śladów kalibracji: okno, seria błędów, ostatnie zadania i powtórki puste', () => {
+    const { tasks } = createCalibration(settings, createRng(6));
+    const m = createSkillModel();
+    // Same błędy: bez czyszczenia gra zaczęłaby się bezpiecznikiem (seria 20) i regulatorem < 60%.
+    applyCalibration(m, answerAll(tasks, () => false, () => 6000), settings);
+    expect(m.window).toEqual([]);
+    expect(m.errorStreak).toBe(0);
+    expect(m.recent).toEqual([]);
+    expect(m.retries).toEqual([]);
+    expect(regulatedQuotas(m)).toEqual({ ...DEFAULT_QUOTAS });
+    // Pierwsze zadania gry nie są powtórkami błędów z kalibracji (bez zakazu powtórek z kalibracji).
+    const calFacts = new Set(tasks.map((t) => t.factId).filter((f): f is string => f !== null));
+    const pool = [...new Set(tasks.map((t) => t.categoryId))];
+    startSession(m, T0);
+    const rng = createRng(1);
+    let now = T0;
+    for (let i = 0; i < 6; i++) {
+      const t = pickTask(m, { categories: pool, settings, mode: 'combat', format: 'choice' }, rng, now);
+      recordAttempt(m, attemptForTask(t, true, 3000, now), now);
+      now += 5000;
+    }
+    expect(m.retries.filter((r) => calFacts.has(r.factId))).toEqual([]);
   });
 
   it('wszystko poprawnie i szybko → priorytety testowanych rosną; błędnie → spadają', () => {
@@ -160,35 +184,114 @@ describe('applyCalibration', () => {
     }
   });
 
+  /** Próba kalibracji faktu wylosowanego dla kategorii `slot` (domyślnie pierwsza kategoria faktu). */
+  const calAttempt = (factId: string, over: Partial<Attempt> = {}): Attempt => {
+    const cats = categoriesOfFact(factId);
+    return {
+      taskId: factId,
+      factId,
+      categoryId: cats[0] as CategoryId,
+      categories: cats,
+      format: 'choice',
+      mode: 'calibration',
+      correct: true,
+      timedOut: false,
+      ms: 3000,
+      helped: false,
+      given: null,
+      errorKind: null,
+      at: T0,
+      ...over,
+    };
+  };
+
   it('prior = 0.5·domyślny + 0.5·średni wynik (szybkość względem mediany działania)', () => {
     const m = createSkillModel();
-    const mk = (factId: string, ms: number, correct = true): Attempt => {
-      const cats = categoriesOfFact(factId);
-      return {
-        taskId: factId,
-        factId,
-        categoryId: cats[0] as CategoryId,
-        categories: cats,
-        format: 'choice',
-        mode: 'calibration',
-        correct,
-        timedOut: false,
-        ms,
-        helped: false,
-        given: null,
-        errorKind: null,
-        at: T0,
-      };
-    };
     // mnożenie: mediana 3000 → T_szybko 2400, T_wolno 7500
-    applyCalibration(m, [mk('mul:2x3', 3000), mk('mul:5x4', 3000), mk('mul:7x3', 3000), mk('mul:9x4', 3000, false)], settings);
+    applyCalibration(
+      m,
+      [
+        calAttempt('mul:2x3', { categoryId: 'mul.t2' }),
+        calAttempt('mul:5x4', { categoryId: 'mul.t5' }),
+        calAttempt('mul:7x3', { categoryId: 'mul.t7' }),
+        calAttempt('mul:9x4', { categoryId: 'mul.t9', correct: false }),
+      ],
+      settings,
+    );
     const s3000 = 0.6 + 0.4 * ((7500 - 3000) / 5100);
-    expect(m.categories['mul.t2']?.prior).toBeCloseTo(0.5 * 0.6 + 0.5 * s3000);
-    expect(m.categories['mul.t7']?.prior).toBeCloseTo(0.5 * 0.35 + 0.5 * s3000);
-    expect(m.categories['mul.t9']?.prior).toBeCloseTo(0.5 * 0.35);
-    // mul.t3: mul:2x3 i mul:7x3 (s3000); mul.t4: mul:5x4 (s3000) i mul:9x4 (0)
-    expect(m.categories['mul.t3']?.prior).toBeCloseTo(0.5 * 0.45 + 0.5 * s3000);
-    expect(m.categories['mul.t4']?.prior).toBeCloseTo(0.5 * 0.45 + 0.5 * (s3000 / 2));
+    const p2 = 0.5 * 0.6 + 0.5 * s3000;
+    const p5 = 0.5 * 0.6 + 0.5 * s3000;
+    const p7 = 0.5 * 0.35 + 0.5 * s3000;
+    const p9 = 0.5 * 0.35;
+    expect(m.categories['mul.t2']?.prior).toBeCloseTo(p2);
+    expect(m.categories['mul.t5']?.prior).toBeCloseTo(p5);
+    expect(m.categories['mul.t7']?.prior).toBeCloseTo(p7);
+    expect(m.categories['mul.t9']?.prior).toBeCloseTo(p9);
+    // mul.t3/mul.t4 — tylko „przy okazji” (2 × 3, 7 × 3, 5 × 4, 9 × 4): nietestowane → połowa średniego
+    // przesunięcia w działaniu (grupa [mul.t3, mul.t4] bez testowanych).
+    const opDelta = (p2 - 0.6 + (p5 - 0.6) + (p7 - 0.35) + (p9 - 0.35)) / 4;
+    expect(m.categories['mul.t3']?.prior).toBeCloseTo(0.45 + opDelta / 2);
+    expect(m.categories['mul.t4']?.prior).toBeCloseTo(0.45 + opDelta / 2);
+  });
+
+  it('próba liczy się tylko do kategorii, dla której ją wylosowano (2 × 8 z mul.t2 nie podnosi mul.t8)', () => {
+    const m = createSkillModel();
+    applyCalibration(
+      m,
+      [calAttempt('mul:2x8', { categoryId: 'mul.t2', ms: 1500 }), calAttempt('mul:8x8', { categoryId: 'mul.t8', correct: false })],
+      settings,
+    );
+    // mul.t8: tylko 8 × 8 (błąd, s = 0) — 2 × 8 nie wchodzi do średniej.
+    expect(m.categories['mul.t8']?.prior).toBeCloseTo(0.5 * 0.35);
+    expect(m.categories['mul.t2']?.prior).toBeGreaterThan(0.6);
+    // recordAttempt bez zmian: fakt i obie jego kategorie zapisane normalnie.
+    expect(m.facts['mul:2x8']?.n).toBe(1);
+    expect(m.categories['mul.t8']?.n).toBe(2);
+    expect(m.categories['mul.t2']?.n).toBe(1);
+  });
+
+  it('bliźniak kalibrowanego faktu (n = 0) startuje z priorytetu po kalibracji, nie z domyślnego', () => {
+    const m = createSkillModel();
+    // 2 × 8 wylosowane dla mul.t2, błąd; mediana brak → s = 0 (błąd).
+    applyCalibration(m, [calAttempt('mul:2x8', { categoryId: 'mul.t2', correct: false })], settings);
+    const p2 = m.categories['mul.t2']?.prior as number;
+    expect(p2).toBeCloseTo(0.3);
+    // 8 × 2: kategorie [mul.t2, mul.t8], obie z n = 1 → pierwsza (mul.t2); aktualizacja od partnera α/2 = 0.25.
+    const twin = m.facts['mul:8x2'];
+    expect(twin?.n).toBe(0);
+    expect(twin?.m).toBeCloseTo(p2 + 0.25 * (0 - p2));
+    // Dawniej start z domyślnego 0.6 → 0.45; teraz niżej, zgodnie z wynikiem kalibracji.
+    expect(twin?.m).toBeLessThan(0.3);
+    // Sam kalibrowany fakt bez zmian (start z domyślnego priorytetu, α = 0.5).
+    expect(m.facts['mul:2x8']?.m).toBeCloseTo(0.6 * 0.5);
+    // Nieoglądany fakt tej samej tabliczki: priorytet kategorii z największą liczbą dowodów (mul.t2, n = 1).
+    expect(factMastery(m, 'mul:2x9')).toBeCloseTo(p2);
+    expect(factMastery(m, 'mul:9x2')).toBeCloseTo(p2);
+  });
+
+  it('bliźniak aktualizowany wielokrotnie: wkład partnera zachowany dokładnie', () => {
+    const m = createSkillModel();
+    applyCalibration(
+      m,
+      [
+        calAttempt('mul:7x8', { categoryId: 'mul.t7', correct: true, ms: 3000 }),
+        calAttempt('mul:7x8', { categoryId: 'mul.t7', correct: false, ms: 3000 }),
+      ],
+      settings,
+    );
+    const p = factMastery({ ...m, facts: {} }, 'mul:8x7');
+    // Oczekiwane: start = priorytet po kalibracji, potem 2 aktualizacje z α/2 = 0.25 (s = 0.8, potem 0).
+    let expected = p;
+    expected += 0.25 * (0.8 - expected);
+    expected += 0.25 * (0 - expected);
+    expect(m.facts['mul:8x7']?.m).toBeCloseTo(expected);
+  });
+
+  it('istniejący przed kalibracją fakt-bliźniak nie jest przeliczany', () => {
+    const m = createSkillModel();
+    m.facts['mul:8x2'] = { m: 0.9, lt: null, n: 0, nOk: 0, box: 0, lastSeenAt: 0, lastSeenSession: 0, helped: 0, last2: [] };
+    applyCalibration(m, [calAttempt('mul:2x8', { categoryId: 'mul.t2', correct: false })], settings);
+    expect(m.facts['mul:8x2']?.m).toBeCloseTo(0.9 - 0.25 * 0.9);
   });
 
   it('propagacja: nietestowane kategorie z grupy (mul.t6 ← średnia z mul.t7/mul.t8)', () => {
@@ -233,13 +336,13 @@ describe('applyCalibration', () => {
     expect(m.categories['mul.t6']?.m).toBeCloseTo(m.categories['mul.t6']?.prior ?? -1);
   });
 
-  it('priorytety w [0.05, 0.95], zachowuje wcześniejsze powtórki', () => {
+  it('priorytety w [0.05, 0.95]; wcześniejsze powtórki usunięte (regulator czysty)', () => {
     const m = createSkillModel();
     const pre = { factId: 'add:8+7', categoryId: 'add.cross10' as CategoryId, dueAtTask: 5, session: 0 };
     m.retries.push(pre);
     const { tasks } = createCalibration(settings, createRng(5));
     applyCalibration(m, answerAll(tasks, (_, i) => i % 3 !== 0, (_, i) => 500 + i * 700), settings);
-    expect(m.retries).toEqual([pre]);
+    expect(m.retries).toEqual([]);
     for (const st of Object.values(m.categories)) {
       expect(st.prior).toBeGreaterThanOrEqual(0.05);
       expect(st.prior).toBeLessThanOrEqual(0.95);

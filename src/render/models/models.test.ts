@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import type { AnimName } from '../../game/contracts';
 import { ONE_SHOT_DURATION, bump, easeOutBack, envelope, hop, isLoop, ramp, squash } from './anim';
-import { mergeBoxes } from './builder';
+import { ModelBuilder, mergeBoxes } from './builder';
+import { baseMaterial } from './materials';
 import { DIGIT_FONT } from './defs/common';
 import { MODEL_IDS, Rig, createFx, createModelFactory } from './index';
 import { Particles } from './particles';
@@ -73,8 +74,36 @@ describe('builder', () => {
   });
 });
 
+describe('builder: lokalne przekształcenie i łączenie świecących kostek', () => {
+  it('transformed() skaluje rozmiary i przesuwa środki', () => {
+    const b = new ModelBuilder(baseMaterial());
+    b.transformed({ from: [0, 1, 0], to: [0, 2, 0], scale: 2 }, () => {
+      b.box('all', [1, 1, 1], [0, 1, 0], '#ff0000');
+    });
+    const built = b.build();
+    const box = new THREE.Box3().setFromObject(built.all);
+    expect(box.min.y).toBeCloseTo(1);
+    expect(box.max.y).toBeCloseTo(3);
+    expect(box.max.x).toBeCloseTo(1);
+  });
+  it('świecące kostki jednej części w różnych kolorach to jedna siatka (budżet wywołań rysowania)', () => {
+    const b = new ModelBuilder(baseMaterial());
+    for (const c of ['#ff0000', '#00ff00', '#0000ff', '#ffffff']) b.box('all', [0.1, 0.1, 0.1], [0, 0.5, 0], c, { glow: 1.5 });
+    b.box('all', [1, 1, 1], [0, 0.5, 0], '#888888');
+    expect(b.build().meshes).toHaveLength(2);
+  });
+});
+
 describe('fabryka modeli', () => {
   const factory = createModelFactory();
+
+  it('brainglamy mieszczą się w budżecie siatek (Galeria ma do 8 naraz)', () => {
+    for (const id of MODEL_IDS.filter(i => i.startsWith('glam:'))) {
+      const rig = factory.create(id) as Rig;
+      expect(rig.meshCount, id).toBeLessThanOrEqual(22);
+      rig.dispose();
+    }
+  });
 
   it('zna wszystkie identyfikatory z kontraktu (w tym każdy PropKind)', () => {
     expect(factory.ids).toContain('hero');
@@ -199,6 +228,23 @@ describe('efekty', () => {
     expect(ps.active).toBeLessThanOrEqual(512);
     for (let i = 0; i < 200; i++) ps.update(0.05);
     expect(ps.active).toBe(0);
+    ps.dispose();
+  });
+
+  it('pełna pula: nowy wybuch nadpisuje kolejne sloty (nie znika w jednej cząstce)', () => {
+    const ps = createFx().createParticles() as Particles;
+    for (let i = 0; i < 40; i++) ps.burst(new THREE.Vector3(), 'sparkle'); // 40 × 28 > 512 — pula pełna
+    ps.update(0.001);
+    expect(ps.active).toBe(512);
+    const tiles = ps.object.geometry.getAttribute('aTile');
+    const digitTiles = (): number => {
+      let n = 0;
+      for (let i = 0; i < tiles.count; i++) if (tiles.getX(i) < 10) n++;
+      return n;
+    };
+    expect(digitTiles()).toBe(0);
+    ps.burst(new THREE.Vector3(), 'digits'); // 7 kostek z cyframi
+    expect(digitTiles()).toBe(7);
     ps.dispose();
   });
 

@@ -43,6 +43,26 @@ export const ITEM_SLOTS = {
 export type ItemId = keyof typeof ITEM_SLOTS;
 export const ITEM_IDS = Object.keys(ITEM_SLOTS) as readonly ItemId[];
 
+/**
+ * Karty (GDD 13.5) — ta sama lista co content/cards.ts. Kolejność = kolejność w tabeli 13.5.
+ * Nieznane id kart są przy wczytaniu pomijane.
+ */
+export const CARD_IDS = [
+  'cios-plusika',
+  'tarcza-z-lisci',
+  'tarcza-dopelniaka',
+  'podwojny-dziob',
+  'koniczynowa-tarcza',
+  'lepka-kokarda',
+  'brokatowy-roj',
+  'perlowy-zdroj',
+  'krolewski-bukiet',
+] as const;
+export type CardId = (typeof CARD_IDS)[number];
+
+/** Talia startowa (GDD 13.5): 5 × Cios Plusika + 3 × Tarcza z liści. */
+export const STARTER_CARDS: Readonly<Partial<Record<CardId, number>>> = { 'cios-plusika': 5, 'tarcza-z-lisci': 3 };
+
 export const LAND_IDS = keysOf<LandId>({ meadow: true, cave: true, volcano: true, castle: true, ice: true });
 export const EQUIP_SLOTS = keysOf<EquipSlot>({ weapon: true, armor: true, net: true, amulet: true });
 export const OPS = keysOf<Op>({ add: true, sub: true, mul: true, div: true });
@@ -134,6 +154,7 @@ function member<T>(list: readonly T[]): (v: unknown) => v is T {
 export const isCreatureId = member<CreatureId>(CREATURE_IDS);
 export const isEnemyId = member<EnemyId>(ENEMY_IDS);
 export const isItemId = member<ItemId>(ITEM_IDS);
+export const isCardId = member<CardId>(CARD_IDS);
 export const isLandId = member<LandId>(LAND_IDS);
 export const isCategoryId = member<CategoryId>(CATEGORY_IDS);
 export const isAttemptMode = member<AttemptMode>(ATTEMPT_MODES);

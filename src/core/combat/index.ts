@@ -20,6 +20,7 @@ export {
   startCombat,
   availableActions,
   enemyIntents,
+  applyCzarDamage,
   applyPlayerAttack,
   applyEnemyHit,
   endEnemyTurn,

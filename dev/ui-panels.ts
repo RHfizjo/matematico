@@ -386,6 +386,12 @@ const STATES: Record<string, () => Demo> = {
   forge: () => demo(forgePanel(ctx, ITEMS, DIGITS)),
   gallery: () => demo(galleryPanel(ctx, GLAMS)),
   expeditions: () => demo(expeditionsPanel(ctx, LANDS)),
+  'expeditions-locked-tap': () =>
+    demo(expeditionsPanel(ctx, LANDS), async () => {
+      await sleep(300);
+      tapEl(q('.ex-card.is-locked'));
+      await sleep(200);
+    }),
   cards: () => demo(cardsPanel(ctx, ENTRIES)),
   'cards-zoom': () =>
     demo(cardsPanel(ctx, ENTRIES), async () => {
@@ -402,7 +408,7 @@ const STATES: Record<string, () => Demo> = {
       const r = btn.getBoundingClientRect();
       const o = { bubbles: true, pointerId: 3, pointerType: 'touch', clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
       btn.dispatchEvent(new PointerEvent('pointerdown', o));
-      await sleep(1100); // w połowie przytrzymania
+      await sleep(450); // w trakcie przytrzymania (zrzut ~1,25 s z 2 s)
     }),
   'parent-lock-math': () =>
     demo(parentLockPanel(ctx), async () => {
@@ -421,7 +427,29 @@ const STATES: Record<string, () => Demo> = {
       }
     }),
   'parent-progress': () => openParent('progress'),
+  'parent-progress-bottom': () =>
+    openParent('progress', async () => {
+      const c = q('.pp-content');
+      if (c) c.scrollTop = c.scrollHeight;
+      const cell = q('.pp-heat [data-a="7"][data-b="8"]');
+      if (cell) cell.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 5 }));
+      await sleep(100);
+    }),
+  'parent-progress-mid': () =>
+    openParent('progress', async () => {
+      const cell = q('.pp-heat [data-a="7"][data-b="8"]');
+      if (cell) cell.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 5 }));
+      const c = q('.pp-content');
+      if (c) c.scrollTop = 520;
+      await sleep(100);
+    }),
   'parent-settings': () => openParent('settings'),
+  'parent-settings-bottom': () =>
+    openParent('settings', async () => {
+      const c = q('.pp-content');
+      if (c) c.scrollTop = c.scrollHeight;
+      await sleep(100);
+    }),
   'parent-settings-fixed': () =>
     openParent('settings', async () => {
       tapEl(q('[data-seg="timeLimit.mode"] [data-val="fixed"]'));

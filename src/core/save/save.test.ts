@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { ALL_CATEGORY_IDS } from '../math/categories';
-import { defaultSettings, emptySkillModel } from './defaults';
-import { CATEGORY_IDS } from './ids';
+import { defaultSettings, emptySkillModel, starterCards } from './defaults';
+import { CARD_IDS, CATEGORY_IDS, STARTER_CARDS } from './ids';
 import { deserializeSave, migrateSave, serializeSave } from './migrate';
 import { SAVE_VERSION, createNewSave } from './save';
 import { saveArb } from './testkit';
@@ -101,8 +101,34 @@ describe('createNewSave', () => {
     expect(p.glams).toEqual({});
     expect(p.openedChests).toEqual([]);
     expect(p.chestPity).toBe(0);
-    expect(p.dungeon).toEqual({ active: false, roomOrder: [], roomIndex: 0, enemyCzar: {}, bossPhase: 1 });
+    expect(p.dungeon).toEqual({ active: false, roomOrder: [], roomIndex: 0, enemyCzar: {}, bossPhase: 1, vines: 0, heroHp: null });
     expect(p.pendingBonusChest).toBe(false);
+    expect(p.merchantDailyCycle).toBe(-1);
+  });
+
+  it('karty: talia startowa 5 × Cios Plusika + 3 × Tarcza z liści (GDD 13.5)', () => {
+    expect(s.cards).toEqual({ owned: { 'cios-plusika': 5, 'tarcza-z-lisci': 3 } });
+    expect(starterCards()).toEqual(s.cards);
+    expect(Object.keys(STARTER_CARDS).every((id) => (CARD_IDS as readonly string[]).includes(id))).toBe(true);
+  });
+
+  it('kolejność pól zapisu jak w types.ts (karty po skarbcu)', () => {
+    expect(Object.keys(s)).toEqual([
+      'version',
+      'createdAt',
+      'updatedAt',
+      'seed',
+      'profile',
+      'settings',
+      'model',
+      'inventory',
+      'cards',
+      'creatures',
+      'equipment',
+      'progress',
+      'history',
+      'sessions',
+    ]);
   });
 
   it('dwa zapisy nie dzielą referencji', () => {
@@ -112,7 +138,12 @@ describe('createNewSave', () => {
     a.progress.lands.meadow.stage = 4;
     a.equipment.equipped.weapon = null;
     a.creatures.push({ id: 'blizniak', level: 1, fedCycle: -1, caughtAt: 5 });
+    a.cards.owned['cios-plusika'] = 9;
+    a.progress.dungeon.enemyCzar.x = 1;
     expect(b).toEqual(createNewSave(5, 1));
+    const c = starterCards();
+    c.owned['tarcza-z-lisci'] = 0;
+    expect(starterCards().owned['tarcza-z-lisci']).toBe(3);
   });
 
   it('ziarno normalizowane do uint32, czas do ≥ 0', () => {

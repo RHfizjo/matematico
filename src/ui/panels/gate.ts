@@ -96,13 +96,13 @@ export function gatePanel(ctx: UiContext, req: GateUiRequest): Promise<GateUiRes
   );
   const previewVal = h('span', { class: 'gate-preview-v' }, '?');
   const preview = h('div', { class: 'gate-preview', attrs: { 'aria-live': 'polite' } }, h('span', { class: 'gate-preview-eq' }, '='), previewVal);
-  const clearBtn = button('Wyczyść', () => {
+  const clearBtn = button(h('span', null, h('span', { class: 'pn-btn-ic' }, '↺'), 'Wyczyść'), () => {
     if (busy || tokens.length === 0) return;
     ctx.sfx('tap');
     tokens = [];
     hideMsg();
     render();
-  }, 'btn-ghost gate-clear');
+  }, 'gate-clear');
   const mid = h('div', { class: 'gate-mid' }, track, h('div', { class: 'gate-side' }, preview, clearBtn));
 
   // ─── Komunikat ───
@@ -249,12 +249,18 @@ export function gatePanel(ctx: UiContext, req: GateUiRequest): Promise<GateUiRes
     // tor
     track.replaceChildren();
     if (tokens.length === 0) track.append(trackHint);
+    let prevEl: HTMLElement | null = null;
     tokens.forEach((tok, i) => {
       const el = tok.t === 'd' ? digitTile(tok.v, { cls: 'gate-tile on-track' }) : opTile(tok.v);
       el.classList.add('on-track');
       el.dataset.index = String(i);
       const prev = tokens[i - 1];
-      if (tok.t === 'd' && prev?.t === 'd') el.classList.add('join');
+      // Sąsiednie cyfry = jedna liczba (GDD 10.1): kafelki sklejone w jeden blok.
+      if (tok.t === 'd' && prev?.t === 'd') {
+        el.classList.add('join');
+        prevEl?.classList.add('join-next');
+      }
+      prevEl = el;
       if (i === poppedIndex) el.classList.add('gate-pop-in');
       el.setAttribute('role', 'button');
       el.setAttribute('aria-label', tok.t === 'd' ? `zdejmij ${tok.v}` : `zdejmij ${tok.v}`);
@@ -292,7 +298,16 @@ export function gatePanel(ctx: UiContext, req: GateUiRequest): Promise<GateUiRes
 
   function check(): void {
     if (busy || tokens.length === 0) return;
-    const score = req.evaluate(tokens);
+    let score: GateScore;
+    try {
+      score = req.evaluate(tokens);
+    } catch {
+      // Ocena nie może zablokować dziecka — traktujemy jak niepoprawne działanie.
+      ctx.sfx('wrong');
+      showMsg('Hmm, tego nie da się policzyć. Spróbuj inaczej!', 'warn', '🤔', 0);
+      nudge(track);
+      return;
+    }
     if (!score.valid) {
       ctx.sfx('wrong');
       showMsg(score.message || 'Jeszcze nie. Spróbuj inaczej!', 'warn', '🤔', 0);
@@ -351,7 +366,16 @@ export function gatePanel(ctx: UiContext, req: GateUiRequest): Promise<GateUiRes
 
   function bindPress(el: HTMLElement, src: () => DragSrc): void {
     el.addEventListener('pointerdown', e => {
-      if (busy || press) return;
+      if (busy) return;
+      if (press) {
+        // Zgubione puszczenie (np. mysz poza oknem) — porzuć stare naciśnięcie.
+        if (press.id === e.pointerId || !press.dragging) {
+          press.ghost?.remove();
+          press.src.el.classList.remove('is-pressed', 'is-dragging');
+          placeCaret(-1);
+          press = null;
+        } else return;
+      }
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       e.preventDefault();
       const r = el.getBoundingClientRect();
@@ -422,7 +446,7 @@ export function gatePanel(ctx: UiContext, req: GateUiRequest): Promise<GateUiRes
     const src = p.src.el;
     const r = src.getBoundingClientRect();
     const ghost = src.cloneNode(true) as HTMLElement;
-    ghost.classList.remove('is-pressed', 'join', 'gate-pop-in', 'is-disabled');
+    ghost.classList.remove('is-pressed', 'join', 'join-next', 'gate-pop-in', 'is-disabled');
     ghost.classList.add('gate-ghost');
     ghost.style.width = `${r.width}px`;
     ghost.style.height = `${r.height}px`;
@@ -450,9 +474,12 @@ export function gatePanel(ctx: UiContext, req: GateUiRequest): Promise<GateUiRes
   }
 
   function placeCaret(index: number): void {
-    track.querySelector('.gate-caret')?.remove();
+    // pointermove przychodzi często — przestawiamy kursor tylko przy zmianie miejsca.
+    const cur = track.querySelector<HTMLElement>(':scope > .gate-caret');
+    if (cur && Number(cur.dataset.at) === index) return;
+    cur?.remove();
     if (index < 0) return;
-    const caret = h('div', { class: 'gate-caret', attrs: { 'aria-hidden': 'true' } });
+    const caret = h('div', { class: 'gate-caret', attrs: { 'aria-hidden': 'true' }, dataset: { at: String(index) } });
     const before = track.querySelector<HTMLElement>(`:scope > [data-index="${index}"]`);
     if (before) track.insertBefore(caret, before);
     else if (tokens.length === 0) track.prepend(caret);

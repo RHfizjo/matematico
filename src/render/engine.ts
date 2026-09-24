@@ -33,6 +33,7 @@ export class Engine {
   private width = 1;
   private height = 1;
   private bloomBase = 1;
+  private dim = 0;
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -110,6 +111,7 @@ export class Engine {
     const vignette = new VignetteEffect({ offset: 0.32, darkness: 0.42 });
     this.grade = new GradeEffect();
     this.grade.set(this.gradeMul, this.gradeLift);
+    this.grade.setDim(this.dim);
     composer.addPass(new EffectPass(this.camera, this.bloom, tone, this.grade, sat, vignette));
     this.composer = composer;
     this.setBloomStrength(this.bloomBase);
@@ -128,6 +130,17 @@ export class Engine {
     this.gradeMul.copy(mul);
     this.gradeLift.copy(lift);
     this.grade?.set(mul, lift);
+  }
+
+  /** Czy działa kompozytor (średni/wysoki) — wtedy przyciemnienie liczy efekt korekcji barw. */
+  get hasComposer(): boolean {
+    return this.composer !== null;
+  }
+
+  /** Przyciemnienie tła 0..1 (tylko z kompozytorem; niski preset — filtr CSS w index.ts). */
+  setDim(k: number): void {
+    this.dim = k;
+    this.grade?.setDim(k);
   }
 
   /** Korekta nasycenia (paleta pory dnia). */

@@ -1,6 +1,8 @@
 /**
  * Brainroty Łąki i boss (GDD 7.5, 7.6, 13.2, 13.3). Po zdjęciu Czaru zamieniają się w brainglamy.
  * Okrzyki są zabawne i łagodne — nikogo nie niszczymy, tylko odczarowujemy.
+ * Liczby wg walki kartami (GDD v0.3, 13.3): zapowiedzi „Cios 10”, „Mocny cios 22”, „2 × cios 6”.
+ * Podwójny cios szybkiego brainrota = 2 × round(attack · 0,75) (core/cards/intents.ts).
  */
 import type { EnemyDef } from '../core/types';
 
@@ -14,7 +16,8 @@ export const ENEMIES: Record<string, EnemyDef> = {
     land: 'meadow',
     czar: 30,
     behavior: 'normal',
-    attack: 15,
+    // „Cios 10” co turę (mocnego ataku nie używa).
+    attack: 10,
     strongAttack: 25,
     strongEvery: 0,
     isBoss: false,
@@ -28,7 +31,8 @@ export const ENEMIES: Record<string, EnemyDef> = {
     land: 'meadow',
     czar: 25,
     behavior: 'fast',
-    attack: 12,
+    // Na zmianę „Cios 8” i „2 × cios 6” (mocnego ataku nie używa).
+    attack: 8,
     strongAttack: 25,
     strongEvery: 0,
     isBoss: false,
@@ -42,8 +46,9 @@ export const ENEMIES: Record<string, EnemyDef> = {
     land: 'meadow',
     czar: 40,
     behavior: 'heavy',
-    attack: 15,
-    strongAttack: 25,
+    // „Cios 10”, co 3. turę „Mocny cios 22”.
+    attack: 10,
+    strongAttack: 22,
     strongEvery: 3,
     isBoss: false,
   },
@@ -56,8 +61,9 @@ export const ENEMIES: Record<string, EnemyDef> = {
     land: 'meadow',
     czar: 120,
     behavior: 'boss',
-    attack: 15,
-    strongAttack: 25,
+    // „Cios 12”; „Mocny cios 24” wg fazy (faza 3: co 2. turę).
+    attack: 12,
+    strongAttack: 24,
     // Mocne ataki wyznacza faza (phases[].strongEvery).
     strongEvery: 0,
     isBoss: true,

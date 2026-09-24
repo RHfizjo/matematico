@@ -56,10 +56,17 @@ export function createHud(ctx: UiContext): HudApi {
   let lastShield = 0;
   let enemyVisible = false;
 
+  /** Jednorazowa animacja przez klasę; klasa znika po animacji (nie blokuje animacji ciągłych, np. pulsu). */
   const bump = (el: HTMLElement, cls = 'bump'): void => {
     el.classList.remove(cls);
     void el.offsetWidth;
     el.classList.add(cls);
+    const done = (e: AnimationEvent): void => {
+      if (e.target !== el) return;
+      el.classList.remove(cls);
+      el.removeEventListener('animationend', done);
+    };
+    el.addEventListener('animationend', done);
   };
 
   const api: HudApi = {

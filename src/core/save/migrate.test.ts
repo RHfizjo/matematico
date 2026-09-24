@@ -167,7 +167,17 @@ describe('migrateSave: naprawa', () => {
     raw.progress.lands.cave.stage = 0;
     raw.progress.glams = { slimakorro: { enemyId: 'inny', count: 0, firstAt: 10 }, zzz: { count: 1 } };
     raw.progress.openedChests = ['a', 'a', '', 5, 'b'];
-    raw.progress.dungeon = { active: true, roomOrder: ['entry', 3, 'boss'], roomIndex: 9, enemyCzar: { entry: -4, boss: 'x' }, bossPhase: 0 };
+    raw.progress.dungeon = {
+      active: true,
+      roomOrder: ['entry', 3, 'boss'],
+      roomIndex: 9,
+      enemyCzar: { entry: -4, boss: 'x' },
+      bossPhase: 0,
+      vines: 99,
+      heroHp: 2.7,
+    };
+    raw.progress.merchantDailyCycle = 8;
+    raw.cards = { owned: { 'cios-plusika': 1, 'podwojny-dziob': 2.9, 'lepka-kokarda': 500, 'karta-z-kosmosu': 3, 'perlowy-zdroj': -2, 'brokatowy-roj': 'x' } };
     raw.model = {
       facts: { 'mul:7x8': { m: 1.7, n: 3, nOk: 10, helped: 5, box: 9, last2: [true, 1, false, true] }, 'zły klucz': { m: 0.5 } },
       categories: { 'mul.t7': { recentMs: [100, -5, 'x', 200], n: -1, nOk: 1, m: -1, prior: 2 }, 'mul.t11': { n: 1 } },
@@ -208,7 +218,25 @@ describe('migrateSave: naprawa', () => {
     expect(m.progress.lands.cave.stage).toBe(1);
     expect(m.progress.glams).toEqual({ slimakorro: { enemyId: 'slimakorro', count: 1, firstAt: 10 } });
     expect(m.progress.openedChests).toEqual(['a', 'b']);
-    expect(m.progress.dungeon).toEqual({ active: true, roomOrder: ['entry', 'boss'], roomIndex: 2, enemyCzar: { entry: 0 }, bossPhase: 1 });
+    expect(m.progress.dungeon).toEqual({
+      active: true,
+      roomOrder: ['entry', 'boss'],
+      roomIndex: 2,
+      enemyCzar: { entry: 0 },
+      bossPhase: 1,
+      vines: 10,
+      heroHp: 2,
+    });
+    // Oferta dnia nie mogła być kupiona w przyszłym cyklu (cykl = 3).
+    expect(m.progress.merchantDailyCycle).toBe(3);
+    // Karty: nieznane pominięte, liczby całkowite 0..99, karty startowe ≥ 3 (brakująca → startowa liczba).
+    expect(m.cards.owned).toEqual({
+      'cios-plusika': 3,
+      'podwojny-dziob': 2,
+      'lepka-kokarda': 99,
+      'perlowy-zdroj': 0,
+      'tarcza-z-lisci': 3,
+    });
     expect(m.model.facts).toEqual({
       'mul:7x8': { m: 1, lt: null, n: 3, nOk: 3, box: 5, lastSeenAt: 0, lastSeenSession: 0, helped: 3, last2: [false, true] },
     });
@@ -440,6 +468,7 @@ describe('migrateSave: fuzz (fast-check)', () => {
       'settings',
       'model',
       'inventory',
+      'cards',
       'creatures',
       'equipment',
       'progress',
@@ -542,6 +571,74 @@ describe('migrateSave: regresje z przeglądu', () => {
       expect(m.creatures[0]).toEqual({ id: 'plusik', level: 1, fedCycle: -1, caughtAt: NOW });
       expect(validateSave(m)).toEqual([]);
     }
+  });
+
+  it('karty: brak kolekcji (zapis sprzed kart) → talia startowa', () => {
+    for (const cards of [undefined, null, 'x', [], {}, { owned: null }, { owned: [1, 2] }, { owned: 'abc' }]) {
+      const raw = loose(fresh());
+      if (cards === undefined) delete raw.cards;
+      else raw.cards = cards;
+      const m = migrateSave(raw);
+      expect(m.cards, JSON.stringify(cards)).toEqual({ owned: { 'cios-plusika': 5, 'tarcza-z-lisci': 3 } });
+      expect(validateSave(m)).toEqual([]);
+    }
+  });
+
+  it('karty: pusta kolekcja → karty startowe; nie da się stracić kart startowych poniżej 3', () => {
+    const raw = loose(fresh());
+    raw.cards = { owned: {} };
+    expect(migrateSave(raw).cards.owned).toEqual({ 'cios-plusika': 5, 'tarcza-z-lisci': 3 });
+    raw.cards = { owned: { 'cios-plusika': 0, 'tarcza-z-lisci': 2, 'podwojny-dziob': 0 } };
+    expect(migrateSave(raw).cards.owned).toEqual({ 'cios-plusika': 3, 'tarcza-z-lisci': 3, 'podwojny-dziob': 0 });
+    raw.cards = { owned: { 'cios-plusika': 7, 'tarcza-z-lisci': 4, 'krolewski-bukiet': 1 } };
+    expect(migrateSave(raw).cards.owned).toEqual({ 'cios-plusika': 7, 'tarcza-z-lisci': 4, 'krolewski-bukiet': 1 });
+  });
+
+  it('karty: klucz __proto__ nie zatruwa prototypu', () => {
+    const raw = JSON.parse('{"version":1,"cards":{"owned":{"__proto__":{"x":1},"podwojny-dziob":2}}}') as unknown;
+    const m = migrateSave(raw);
+    expect(Object.getPrototypeOf(m.cards.owned)).toBe(Object.prototype);
+    expect(m.cards.owned).toEqual({ 'podwojny-dziob': 2, 'cios-plusika': 5, 'tarcza-z-lisci': 3 });
+    expect(validateSave(m)).toEqual([]);
+  });
+
+  it('dungeon: brak pnączy/HP → 0/null; HP przycinane do 1..999, HP ≤ 0 → pełne (null); oferta dnia −1', () => {
+    const raw = loose(fresh());
+    delete raw.progress.dungeon.vines;
+    delete raw.progress.dungeon.heroHp;
+    delete raw.progress.merchantDailyCycle;
+    const m = migrateSave(raw);
+    expect(m.progress.dungeon.vines).toBe(0);
+    expect(m.progress.dungeon.heroHp).toBeNull();
+    expect(m.progress.merchantDailyCycle).toBe(-1);
+    const cases: [unknown, number | null][] = [
+      // HP ≤ 0 → ratunek stworków z pełnym HP (GDD 7.5), jak recordBattleProgress/startCardBattle.
+      [0, null],
+      [-0, null],
+      [-5, null],
+      [0.4, 1],
+      [57, 57],
+      [57.9, 57],
+      [5000, 999],
+      ['57', null],
+      [NaN, null],
+      [null, null],
+      [true, null],
+    ];
+    for (const [heroHp, want] of cases) {
+      const r = loose(fresh());
+      r.progress.dungeon.heroHp = heroHp;
+      expect(migrateSave(r).progress.dungeon.heroHp, String(heroHp)).toBe(want);
+    }
+    const r = loose(fresh());
+    r.progress.cycle = 4;
+    r.progress.merchantDailyCycle = 4;
+    r.progress.dungeon.vines = -3;
+    const n = migrateSave(r);
+    expect(n.progress.merchantDailyCycle).toBe(4);
+    expect(n.progress.dungeon.vines).toBe(0);
+    r.progress.merchantDailyCycle = -9;
+    expect(migrateSave(r).progress.merchantDailyCycle).toBe(-1);
   });
 
   it('openedChests: ogromna lista przetwarzana liniowo', () => {

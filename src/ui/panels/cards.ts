@@ -13,10 +13,15 @@ import './cards.css';
 /** Maks. liczba kart w talii (GDD 7.5) — tylko do wyświetlenia „15/15”. */
 const DECK_MAX = 15;
 
-/** Style kart (CARD_CSS) wstrzykiwane raz — na wypadek, gdyby nikt inny tego nie zrobił. */
+/**
+ * Style kart (CARD_CSS) wstrzykiwane raz — na wypadek, gdyby nikt inny tego nie zrobił.
+ * Ten sam identyfikator co w ui/index.ts (createUi), żeby nie dublować arkusza.
+ */
+const CARD_CSS_ID = 'ui-card-css';
 function ensureCardCss(): void {
-  if (document.querySelector('style[data-card-css]')) return;
+  if (document.getElementById(CARD_CSS_ID) || document.querySelector('style[data-card-css]')) return;
   const st = document.createElement('style');
+  st.id = CARD_CSS_ID;
   st.dataset.cardCss = '1';
   st.textContent = CARD_CSS;
   document.head.append(st);

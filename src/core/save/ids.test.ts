@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { allFacts, parseFact } from '../math/facts';
 import { defaultSettings } from './defaults';
-import { isFactId, isFactInCategory } from './ids';
+import { CARD_IDS, STARTER_CARDS, isCardId, isFactId, isFactInCategory } from './ids';
 
 const parses = (f: string): boolean => {
   try {
@@ -51,5 +51,19 @@ describe('isFactId (zgodność z core/math)', () => {
     expect(isFactInCategory('add:2+3', 'mul.t7')).toBe(false);
     expect(isFactInCategory('cmp10:3', 'add.complement10')).toBe(true);
     expect(isFactInCategory('sub:3-5', 'sub.within10')).toBe(false);
+  });
+});
+
+describe('CARD_IDS (GDD 13.5)', () => {
+  it('9 kart Łąki, bez duplikatów; talia startowa z kart znanych', () => {
+    expect(CARD_IDS).toHaveLength(9);
+    expect(new Set(CARD_IDS).size).toBe(CARD_IDS.length);
+    expect(STARTER_CARDS).toEqual({ 'cios-plusika': 5, 'tarcza-z-lisci': 3 });
+    for (const id of Object.keys(STARTER_CARDS)) expect(isCardId(id)).toBe(true);
+  });
+
+  it('isCardId', () => {
+    expect(isCardId('krolewski-bukiet')).toBe(true);
+    for (const v of ['', 'Cios-Plusika', 'smok', '__proto__', 'toString', 1, null, undefined]) expect(isCardId(v)).toBe(false);
   });
 });
