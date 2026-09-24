@@ -1,8 +1,8 @@
 # Matematico — Dokument Projektu Gry (GDD)
 
-**Wersja:** 0.1 (szkic do akceptacji)
+**Wersja:** 0.2 (zaakceptowana kierunkowo; decyzje rodzica z 2026-09-24 wprowadzone)
 **Data:** 2026-09-24
-**Status:** czeka na akceptację rodzica — **bez kodu gry**
+**Status:** podstawa do implementacji MVP
 
 ---
 
@@ -27,7 +27,15 @@ Skala pewności: 1 zgadywanie · 2 pojedyncza słaba przesłanka · 3 spójne ro
 
 Wszystkie źródła literaturowe w tym dokumencie są na poziomie **[ABSTRAKT]** lub **[WTÓRNE]** — nie czytałem pełnych tekstów.
 
-### 0.2. Zakres
+### 0.2. Zmiany w wersji 0.2
+
+Decyzje rodzica: „rób jak uważasz za słuszne; na początek bez pada, sterowanie na ekranie; przeciwnikami będą brainroty, które zamieniają się w brainglamy”.
+
+1. **Sterowanie dotykiem jest jedynym wejściem w MVP.** Pad przeniesiony do etapu po MVP (sekcja 22). Warstwa akcji abstrakcyjnych zostaje, więc dodanie pada nie wymaga przebudowy.
+2. **Przeciwnicy to brainroty** — absurdalne hybrydy zwierząt, jedzenia i przedmiotów z pseudo-włoskimi, rymowanymi imionami. Po pokonaniu **zamieniają się w brainglamy** (odczarowana, błyszcząca wersja), które trafiają do Galerii w bazie (sekcja 7.6).
+3. Otwarte pytania z v0.1 rozstrzygnięte według moich rekomendacji (sekcja 24).
+
+### 0.3. Zakres
 
 Dokument opisuje całą grę docelową, ale szczegółowo rozpisuje tylko **MVP** (baza + Łąka + dungeon). Kolejne krainy są opisane na poziomie założeń.
 
@@ -42,6 +50,7 @@ Dokument opisuje całą grę docelową, ale szczegółowo rozpisuje tylko **MVP*
 ### Zasady (w razie konfliktu wygrywa wyższa)
 
 1. **Pomyłka uczy, nie karze.** Nie da się przegrać postępu. Zły wynik daje słabszy efekt i krótką podpowiedź.
+   **Nikogo nie niszczymy — odczarowujemy.** Walka zdejmuje z brainrota „zaczarowanie”; pokonany brainrot staje się brainglamem i przyjacielem.
 2. **Matematyka jest mechaniką, nie bramką przed zabawą.** Każde zadanie coś robi w świecie gry.
 3. **Sprzęt pomaga liczyć, nie liczy za dziecko.** Daje czas, podpowiedź na osi i jedną poprawkę — nigdy gotowego wyniku.
 4. **Gra ma wyglądać na grę, nie na sprawdzian.** [HIPOTEZA, pewność 3] Program odbierany jako test może zwiększać porzucanie sesji u dzieci z lękiem przed testami — w badaniu Hilz i in. 2025 (piątoklasiści, n=890) uczniowie z lękiem przed testami matematycznymi częściej przerywali sesję w adaptacyjnym programie, a autorzy łączą to z odbiorem programu jako testu [FAKT][ABSTRAKT] (źródło [S9]).
@@ -59,13 +68,13 @@ Dokument opisuje całą grę docelową, ale szczegółowo rozpisuje tylko **MVP*
 | SoC / GPU | MediaTek Dimensity 9400+, GPU Immortalis-G925 | [FAKT] [T1] |
 | RAM | 12 lub 16 GB | [FAKT] [T1] |
 | Przeglądarka | Chrome na Androidzie | — |
-| Wejście | pad Bluetooth (Gamepad API) + dotyk | — |
+| Wejście | **MVP: dotyk (sterowanie na ekranie)**; pad Bluetooth (Gamepad API) — po MVP | — |
 | Tryb | PWA: instalacja, pełny ekran, offline, orientacja pozioma | — |
 
 **Wymagania techniczne wynikające z platformy:**
 
-- **HTTPS jest obowiązkowy.** Chrome udostępnia Gamepad API tylko w bezpiecznym kontekście (HTTPS lub `localhost`) i wykrywa pad dopiero po naciśnięciu przycisku [FAKT][WTÓRNE] (źródła [T3], [T4]). Service worker (offline) też wymaga HTTPS [NIESPRAWDZONE]. Wniosek: hosting (do ustalenia) musi dawać HTTPS; testy na tablecie przez sieć LAN po zwykłym HTTP **nie zadziałają dla pada**.
-- **Ekran startowy musi poprosić o naciśnięcie przycisku na padzie** („Naciśnij dowolny przycisk”), bo bez tego pad nie jest widoczny.
+- **HTTPS jest obowiązkowy.** Service worker (offline, instalacja PWA) wymaga HTTPS [NIESPRAWDZONE]. Wniosek: hosting (do ustalenia) musi dawać HTTPS.
+- **Na etap z padem:** Chrome udostępnia Gamepad API tylko w bezpiecznym kontekście (HTTPS lub `localhost`) i wykrywa pad dopiero po naciśnięciu przycisku [FAKT][WTÓRNE] (źródła [T3], [T4]). Ekran startowy będzie wtedy prosił o naciśnięcie przycisku na padzie.
 
 ---
 
@@ -84,11 +93,12 @@ Dokument opisuje całą grę docelową, ale szczegółowo rozpisuje tylko **MVP*
    │     BAZA     │─────────────────▶│    BRAMA     │                │
    │ zagroda,     │                  │ „ułóż 54”    │                │
    │ skarbiec,    │                  └──────┬───────┘                │
-   │ kuźnia       │                         │ otwarta                │
-   └──────────────┘                         ▼                        │
-          ▲                          ┌──────────────┐   ┌──────────┐ │
-          │   sprzęt, cyfry          │   DUNGEON    │──▶│  ŁUP     │─┘
-          └──────────────────────────│ walki QTE,   │   │ sprzęt,  │
+   │ kuźnia,      │                         │ otwarta                │
+   │ galeria      │                         ▼                        │
+   │ brainglamów  │                  ┌──────────────┐   ┌──────────┐ │
+   └──────────────┘                  │   DUNGEON    │──▶│  ŁUP +   │─┘
+          ▲   sprzęt, cyfry,         │ brainroty,   │   │ BRAINGLAM│
+          └───brainglamy─────────────│ walki QTE,   │   │ sprzęt,  │
                                      │ boss         │   │ cyfry    │
                                      └──────────────┘   └──────────┘
 ```
@@ -260,9 +270,9 @@ Pula faktów zależy od **etapu krainy** i ustawień rodzica. Adaptacja działa 
 | Ł1 | dodawanie w zakresie 10 |
 | Ł2 | + dopełnianie do 10, podwajanie do 5+5 |
 | Ł3 | + dodawanie do 20 bez przekroczenia (12+5), podwajanie do 10+10 |
-| Ł4 | + trzy składniki (4+6+3), dwucyfrowe bez przeniesienia (34+25) — jeśli rodzic ustawił zakres do 100 |
+| Ł4 | + trzy składniki (4+6+3), **przekraczanie 10** (8+7); dwucyfrowe bez przeniesienia (34+25) — jeśli rodzic ustawił zakres do 100 |
 
-Etap odblokowuje się, gdy średnie `m` kategorii etapu ≥ 0.7 **albo** po pokonaniu bossa. Rodzic może włączyć „przekraczanie 10 już na Łące” — dziecko je zna, więc to może być potrzebne, żeby Łąka nie była za łatwa (sekcja 24).
+Etap odblokowuje się, gdy średnie `m` kategorii etapu ≥ 0.7 **albo** po pokonaniu bossa. Przekraczanie 10 jest w Ł4 domyślnie (decyzja v0.2, sekcja 24); rodzic może je wyłączyć.
 
 ### 6.6. Kalibracja startowa
 
@@ -286,9 +296,11 @@ Wartości domyślne przed kalibracją [ZAŁOŻENIE]: do 10 → 0.6; przekroczeni
 
 1. **Tura gracza:** wybór akcji (menu 2–4 ikon).
 2. **Zamach w zwolnionym tempie:** świat zwalnia do 10% prędkości, kamera robi zbliżenie, tło się przyciemnia i rozmywa.
-3. **QTE:** duże działanie na środku, 3–4 odpowiedzi w **układzie rombu** odpowiadającym przyciskom pada (A dół, B prawo, X lewo, Y góra).
+3. **QTE:** duże działanie na środku, 3–4 odpowiedzi jako **duże przyciski dotykowe w układzie rombu** (ten sam układ posłuży później przyciskom pada: A dół, B prawo, X lewo, Y góra).
 4. **Rozstrzygnięcie:** efekt zależy od wyniku (tabela 7.3). Po błędzie — podpowiedź (5.4).
-5. **Tura wroga:** zapowiedź ataku (animacja zamachu, ikona „zwykły” / „mocny”) → QTE obrony.
+5. **Tura brainrota:** zapowiedź ataku (animacja zamachu, ikona „zwykły” / „mocny”) → QTE obrony.
+
+Przeciwnikiem jest zawsze **brainrot** (sekcja 7.6). Jego pasek życia to pasek **Czaru** — trafienia zdejmują zaczarowanie.
 
 Spokojne tło w QTE: [HIPOTEZA, pewność 2] bogata wizualnie gra może zwiększać lęk u dzieci z niższą wzrokowo-przestrzenną pamięcią roboczą. Podstawa: [FAKT][ABSTRAKT] 40 drugoklasistów, bez grupy kontrolnej, wzrost lęku u dzieci z niższą pojemnością tej pamięci ([S10]). Słabe dane, ale przyciemnienie tła nic nie kosztuje.
 
@@ -347,7 +359,18 @@ Stan dowodów o presji czasu:
 | Zwykły atak wroga / mocny | 15 / 25 obrażeń |
 | Długość walki | 3–6 tur gracza, 6–10 zadań, ok. 2–3 min [ZAŁOŻENIE: 10–15 s na zadanie z animacją] |
 
-**„Porażka” nie istnieje:** HP 0 → „Stworki cię ratują” — bohater wraca na początek bieżącego pokoju z pełnym HP, **wróg zachowuje zadane obrażenia**, boss zachowuje fazę. Postęp nigdy się nie cofa.
+**„Porażka” nie istnieje:** HP 0 → „Stworki cię ratują” — bohater wraca na początek bieżącego pokoju z pełnym HP, **brainrot zachowuje zdjęty Czar**, boss zachowuje fazę. Postęp nigdy się nie cofa.
+
+### 7.6. Brainroty i brainglamy
+
+**Fabuła w jednym zdaniu:** krainy opanowała Mózgozgnilizna — zwykłe stworzenia i przedmioty pozlepiały się w dziwaczne brainroty; dobre liczenie zdejmuje z nich czar i zamienia je w **brainglamy**.
+
+- **Brainrot** = absurdalna hybryda (zwierzę + jedzenie/przedmiot), pseudo-włoskie rymowane imię, przesadne ruchy, zabawny okrzyk przy ataku.
+- Czar = 0 → **przemiana**: brainrot wiruje, rozpada się na świecące kostki (poświata), które składają się w **brainglama** — tę samą postać w wersji odczarowanej: pastelowe/złote kolory, brokat, korona, kokarda lub okulary, spokojniejszy taniec.
+- **Pierwsza przemiana danego gatunku:** brainglam dziękuje, daje **prezent powitalny** (3 cyfry, w tym 1 niezwykła) i trafia do **Galerii Brainglamów** w bazie (chodzi, tańczy po dotknięciu).
+- **Kolejne przemiany** tego samego gatunku: brainglam macha i odchodzi; łup jak zwykle.
+- Licznik Galerii (np. 3/4 na Łące) jest drugim, obok stworków, celem kolekcjonerskim.
+- **Własne projekty postaci.** Brainroty w grze są oryginalne, w konwencji memów „Italian brainrot”, ale bez kopiowania konkretnych istniejących postaci — gra ma własne modele, a imiona są w jednym pliku danych, więc łatwo je zmienić (np. razem z dzieckiem).
 
 ---
 
@@ -381,6 +404,7 @@ Mała wyspa-obozowisko z kostek:
 - **Skarbiec** — cyfry 0–9 z licznikami.
 - **Kuźnia** — ulepszanie sprzętu za cyfry.
 - **Tablica Wypraw** — wybór krainy (w MVP tylko Łąka).
+- **Galeria Brainglamów** — odczarowane brainroty (sekcja 7.6).
 
 ### 9.2. Cyfry — rzadkość
 
@@ -405,7 +429,7 @@ Działania (+ − × :) **nie są zużywane**. Są odblokowywane na stałe przez
 
 **Karmienie:** raz na cykl na stworka — 3 zadania z jego kategorii w bazie → +1 cyfra w tym cyklu. Powiązanie produkcji z ćwiczeniem.
 
-**Inne źródła:** skrzynie w krainie (2–4 cyfry), łup z dungeonu, złapanie stworka (1 cyfra).
+**Inne źródła:** skrzynie w krainie (2–4 cyfry), łup z dungeonu, złapanie stworka (1 cyfra), prezent powitalny brainglama (3 cyfry, raz na gatunek).
 
 **Start:** 2× każda z 1–9 + 1× 0 (19 cyfr) oraz Plusik w prezencie.
 
@@ -474,13 +498,13 @@ Nic nie jest zużywane. Brama pokazuje wynik ułożonego działania i odległoś
 
 | # | Pokój | Zawartość |
 |---|---|---|
-| 1 | Wejście | walka: 1 wróg |
+| 1 | Wejście | walka: 1 brainrot |
 | 2 | Skarbiec | skrzynia zamknięta zadaniem (brakująca liczba) |
-| 3 | Gniazdo | walka: 2 wrogów po kolei |
+| 3 | Gniazdo | walka: 2 brainroty po kolei |
 | 4 | Ognisko | pełne HP; krótka „lekcja stworka” — pokaz strategii dla najsłabszej kategorii dziecka |
 | 5 | Sala bossa | boss |
 
-Przy powtórnych wizytach: inna kolejność pokoi 1–3, wrogowie skalowani do etapu, nowy cel bramy.
+Przy powtórnych wizytach: inna kolejność pokoi 1–3, brainroty skalowane do etapu, nowy cel bramy.
 
 ---
 
@@ -519,23 +543,25 @@ Broń · Pancerz · Sieć · Amulet. Poziomy 1–3 (kuźnia): więcej użyć na 
 
 Koniczynek pojawia się dopiero po pokonaniu bossa (w nocy gry, przy starym dębie) — cel „po MVP” w obrębie MVP.
 
-### 13.2. Przeciwnicy
+### 13.2. Brainroty Łąki
 
-| Wróg | HP | Zachowanie |
-|---|---|---|
-| **Kolczak** (kostkowy jeż) | 30 | co turę zwykły atak |
-| **Trzmielak** | 25 | szybki: co drugą turę atakuje 2× (2 obrony po kolei) |
-| **Grzybol** | 40 | co 3. turę **mocny atak** (dłuższa zapowiedź, świecący kapelusz) |
+| Brainrot | Wygląd | Czar | Zachowanie | Brainglam (po przemianie) |
+|---|---|---|---|---|
+| **Ślimakorro Buciorro** | ślimak, którego muszlą jest za duży trampek | 30 | co turę zwykły atak „Kopniak z sznurówki” | **Ślimakella Glamella** — trampek w brokacie, różowa kokarda |
+| **Trzmielini Tostini** | trzmiel z kromki tosta, skrzydła z sałaty | 25 | szybki: co drugą turę atakuje 2× (2 obrony po kolei) | **Trzmielina Brokatina** — złoty tost, skrzydła jak witraż |
+| **Grzybello Kalafiorello** | grzyb z kalafiorem zamiast kapelusza, na nóżkach od krzesła | 40 | co 3. turę **mocny atak** (dłuższa zapowiedź, świecący kalafior) | **Grzybella Perłella** — perłowy kapelusz, lśniące nóżki |
 
-### 13.3. Boss: Chwastor, Król Chwastów
+### 13.3. Boss: Kosiarrini Chwastorrini
 
-HP 120, trzy fazy (po 40 HP):
+Wielki chwast-kosiarka: łodyga z liśćmi, zamiast korzeni kółka kosiarki, na czubku klaszczący mlecz. Czar 120, trzy fazy (po 40):
 
 | Faza | Zadania | Mechanika |
 |---|---|---|
 | 1 | dodawanie do 10/20 | zwykłe ataki |
 | 2 | podwajanie + dopełnianie | przywołuje 2 pnącza — każde „zwiędnie” po jednym poprawnym ataku |
 | 3 | mieszane z całej Łąki | mocny atak co 2. turę |
+
+Po przemianie: **Kwiatorra, Królowa Łąki** (brainglam) — kosiarka zamienia się w karetę z kwiatów.
 
 Łup z bossa: **Złota Sieć** + **Amulet Drugiej Szansy** + 5 cyfr (w tym 1× 0).
 
@@ -558,39 +584,38 @@ Skrzynie mają zawartość z **gwarancją** (np. każda 3. zwykła skrzynia daje
 
 ## 14. Sterowanie
 
-### 14.1. Pad (standardowe mapowanie Gamepad API)
+**MVP: tylko dotyk (sterowanie na ekranie).** Pad dochodzi po MVP (sekcja 22) — przez tę samą warstwę akcji abstrakcyjnych (14.4).
+
+### 14.1. Dotyk (MVP)
+
+- **Eksploracja:** wirtualna gałka w lewej części ekranu (pojawia się pod palcem, promień ~70 px CSS), przeciąganie w prawej części = obrót kamery, dotknięcie obiektu = interakcja (bohater podchodzi). Duży przycisk **akcji** w prawym dolnym rogu, pokazuje ikonę tego, co jest w zasięgu (złap / otwórz / wejdź / rozmawiaj).
+- **Walka:** 4 duże przyciski odpowiedzi w **układzie rombu** w prawej dolnej części (zasięg kciuka przy trzymaniu tabletu oburącz); minimalny rozmiar 120×120 px CSS. Menu akcji (atak prosty / mocny) jako duże ikony po lewej.
+- **Brama:** przeciąganie kafelków; dotknięcie kafelka na tacy = dołóż na koniec toru; dotknięcie kafelka na torze = zwróć.
+- **Pauza:** przycisk w lewym górnym rogu.
+- Gesty systemowe Androida przy krawędziach — elementy UI z marginesem ≥ 32 px od krawędzi [ZAŁOŻENIE].
+- Wielodotyk: gałka i kamera działają jednocześnie (osobne wskaźniki `pointerId`).
+
+### 14.2. Klawiatura (tylko do testów deweloperskich)
+
+WASD/strzałki = ruch, spacja/Enter = akcja, 1–4 = odpowiedzi, Esc = pauza.
+
+### 14.3. Pad (po MVP; standardowe mapowanie Gamepad API)
 
 | Przycisk | Eksploracja | Walka (QTE) | Brama | Menu |
 |---|---|---|---|---|
 | Lewa gałka / d-pad | ruch | wybór opcji (alternatywa) | kursor na tacy | nawigacja |
 | Prawa gałka | kamera (orbit) | — | — | — |
-| A (dół) | interakcja / rozmowa / łapanie | odpowiedź „dół” | połóż kafelek | zatwierdź |
+| A (dół) | interakcja / łapanie | odpowiedź „dół” | połóż kafelek | zatwierdź |
 | B (prawo) | anuluj | odpowiedź „prawo” | wyjdź | wstecz |
 | X (lewo) | — | odpowiedź „lewo” | cofnij kafelek | — |
-| Y (góra) | mapa | odpowiedź „góra” / pomoc OŚ (w menu akcji) | sprawdź | — |
-| LB / RB | — | poprzednia / następna akcja | przesuń tacę | zakładki |
+| Y (góra) | mapa | odpowiedź „góra” | sprawdź | — |
 | Start | pauza | pauza | pauza | — |
 
-- **Układ przycisków** (Xbox / PlayStation / Nintendo) wykrywany z `gamepad.id` z możliwością ręcznej zmiany; ikony na ekranie zawsze pokazują właściwe symbole. [ZAŁOŻENIE] Nie wiem, jaki pad ma dziecko — pytanie w sekcji 24.
-- Martwa strefa gałek 0,2; blokada 300 ms na wejście po pokazaniu QTE.
-- Utrata połączenia z padem → automatyczna pauza i komunikat.
-
-### 14.2. Dotyk
-
-- **Eksploracja:** wirtualna gałka w lewej połowie ekranu (pojawia się pod palcem), przeciąganie po prawej = kamera, dotknięcie obiektu = interakcja (bohater podchodzi).
-- **Walka:** 4 duże przyciski odpowiedzi w **tym samym rombie** co na padzie, w prawym dolnym rogu (zasięg kciuka przy trzymaniu tabletu); minimalny rozmiar 120×120 px CSS.
-- **Brama:** przeciąganie kafelków.
-- Gesty systemowe Androida przy krawędziach — elementy UI z marginesem ≥ 32 px od krawędzi [ZAŁOŻENIE].
-
-### 14.3. Klawiatura (tylko do testów deweloperskich)
-
-WASD/strzałki, spacja = A, 1–4 = odpowiedzi.
+Układ przycisków (Xbox / PlayStation / Nintendo) wykrywany z `gamepad.id` z ręczną zmianą; martwa strefa 0,2; blokada 300 ms na wejście po pokazaniu QTE; utrata połączenia → pauza.
 
 ### 14.4. Wspólna warstwa wejścia
 
-Wszystkie urządzenia mapują się na **akcje abstrakcyjne** (`move`, `confirm`, `cancel`, `answer(0..3)`, `pause`…). Logika gry nie wie, skąd przyszło wejście. Ostatnio użyte urządzenie decyduje, jakie podpowiedzi przycisków pokazuje UI.
-
----
+Wszystkie urządzenia mapują się na **akcje abstrakcyjne** (`move`, `look`, `confirm`, `cancel`, `answer(0..3)`, `pause`…). Logika gry nie wie, skąd przyszło wejście.
 
 ## 15. UI/UX dla 8-latka
 
@@ -614,6 +639,7 @@ Wszystkie urządzenia mapują się na **akcje abstrakcyjne** (`move`, `confirm`,
 - **Poświata (bloom)** tylko na elementach emisyjnych: oczy stworków, kryształy, cyfry łupu, brama.
 - **Mgła w oddali** w kolorze horyzontu nieba — ukrywa granicę zasięgu i daje głębię.
 - Postacie: sztywne części animowane proceduralnie (kiwanie, podskoki, jak w Minecrafcie) — bez szkieletów.
+- **Brainroty:** zbudowane z kostek jak reszta świata, ale z przesadnymi proporcjami, nierównym „kiwaniem” i nasyconymi, lekko kwaśnymi kolorami. **Brainglamy:** te same bryły, paleta pastelowo-złota, materiał z lekką emisją (poświata), drobinki brokatu.
 - Pora dnia gry (świt/dzień/zmierzch/noc) — zmienia kolory światła i mgły.
 
 ### 16.2. Dźwięk
@@ -686,7 +712,7 @@ Przytrzymanie ikony kłódki przez 2 s → działanie dla dorosłych do **wpisan
 | Zakres liczb | do 10 / do 20 / do 100 | do 20 |
 | Działania włączone | + − × : (osobno) | wszystkie |
 | Działania w walce | tematyczne krainy / wszystkie | tematyczne |
-| Przekraczanie 10 na Łące | tak / nie | nie (do decyzji — sekcja 24) |
+| Przekraczanie 10 na Łące | tak / nie | tak |
 | Limit czasu QTE | Brak / Łagodny / Stały (s per działanie) | Brak → Łagodny po 1. wyprawie |
 | Przypomnienie o przerwie | brak / 15 / 20 / 30 min | brak |
 | Jakość grafiki | auto / niska / średnia / wysoka | auto |
@@ -814,33 +840,32 @@ CI (propozycja): GitHub Actions — lint, typecheck, testy, build przy każdym p
 
 | Etap | Zakres | Kryterium ukończenia |
 |---|---|---|
-| **0. Spike techniczny** | Vite+TS+three.js, scena testowa z kostek (cienie PCF, bloom, mgła), 3 presety, pad + dotyk, PWA offline, hosting HTTPS testowy | na Tab S11 Ultra: pomiar fps w 3 presetach; pad działa w zainstalowanej PWA; gra startuje offline |
-| **1. Rdzeń logiki** | `core/`: fakty, generatory, dystraktory, podpowiedzi, model, scheduler, kalibracja, solver bramy, ekonomia, walka (logika), zapis | testy zielone, symulacja z 21 spełnia kryteria; zero kodu grafiki |
-| **2. MVP** | baza, Łąka, 4 stworki, łapanie, brama, dungeon 5 pokoi, 3 wrogów, boss, sprzęt Łąki, kuźnia, panel rodzica, zapis, PWA | patrz niżej |
-| 3. Jaskinia | odejmowanie, Minusiak, nowe stworki, boss | jak MVP dla nowej krainy |
-| 4. Wulkan | przekraczanie 10 | — |
+| **0. Szkielet techniczny** | Vite+TS+three.js, scena z kostek (cienie PCF, bloom, mgła), 3 presety, **sterowanie dotykowe**, PWA offline | scena działa w Chromium; pomiar fps na Tab S11 Ultra robi rodzic (licznik fps w ustawieniach) |
+| **1. Rdzeń logiki** | `core/`: fakty, generatory, dystraktory, podpowiedzi, model, scheduler, kalibracja, solver bramy, ekonomia, walka (logika), zapis | testy zielone, symulacja z sekcji 21 spełnia kryteria; zero kodu grafiki |
+| **2. MVP** | baza, Łąka, 4 stworki, łapanie, brama, dungeon 5 pokoi, 3 brainroty + boss, przemiana w brainglamy + Galeria, sprzęt Łąki, kuźnia, panel rodzica, zapis, PWA | patrz niżej |
+| 2a. Pad | Gamepad API przez warstwę akcji, ikony układów, ekran „naciśnij przycisk” | działa na padzie dziecka w zainstalowanej PWA |
+| 3. Jaskinia | odejmowanie, Minusiak, nowe stworki i brainroty, boss | jak MVP dla nowej krainy |
+| 4. Wulkan | przekraczanie 10 (dwucyfrowe, odejmowanie) | — |
 | 5. Zamek | mnożenie, Razik | — |
 | 6. Lodowa Kraina | dzielenie, Dzielnik, boss finałowy | — |
 | 7. Szlif | dźwięk, animacje, Liczbopedia, propozycje zaakceptowane z sekcji 25 | — |
 
 **Definicja ukończenia MVP:**
 
-1. Pełna pętla (baza → Łąka → złapanie ≥ 3 stworków → baza → brama → dungeon → boss → łup → baza) grywalna **padem i dotykiem**.
+1. Pełna pętla (baza → Łąka → złapanie ≥ 3 stworków → baza → brama → dungeon → boss → przemiana w brainglama → łup → baza) grywalna **dotykiem**.
 2. Działa offline po instalacji jako PWA; pełny ekran, orientacja pozioma.
 3. Zapis przetrwa zamknięcie aplikacji i restart tabletu; eksport/import działa.
 4. Panel rodzica pokazuje postępy i słabe punkty; ustawienia zakresu i limitu czasu działają.
 5. Adaptacja: w logach realnej gry słabe fakty pojawiają się częściej niż opanowane.
-6. Preset „średni”: średnio ≥ 55 fps przez 10 min gry na Tab S11 Ultra (pomiar w grze).
+6. Preset „średni”: średnio ≥ 55 fps przez 10 min gry na Tab S11 Ultra (pomiar w grze — do wykonania przez rodzica, nie mam dostępu do urządzenia).
 7. Nie da się utknąć: brak cyfr → dar bramy; HP 0 → powrót do pokoju bez utraty postępu.
-
----
 
 ## 23. Ryzyka
 
 | Ryzyko | Prawdopodobieństwo | Skutek | Środek zaradczy |
 |---|---|---|---|
 | Wydajność cieni/post-processingu niższa niż zakładam | [HIPOTEZA, pewność 2 że wystąpi] | niższa jakość | Etap 0 mierzy przed resztą; presety; dynamiczna rozdzielczość |
-| Pad nie działa w PWA na tym tablecie / inny układ przycisków | [HIPOTEZA, pewność 2] | sterowanie | Etap 0; ręczny wybór układu; dotyk jako pełnoprawna alternatywa |
+| Pad nie działa w PWA na tym tablecie / inny układ przycisków | [HIPOTEZA, pewność 2] | sterowanie | pad dopiero w etapie 2a; dotyk jest pełnym sterowaniem |
 | Usunięcie danych przez Chrome | [HIPOTEZA, pewność 2] | utrata postępu | `persist()`, eksport do pliku |
 | Łąka za łatwa dla dziecka, które zna 4 działania | [HIPOTEZA, pewność 4] | nuda | kalibracja, „wszystkie działania w walce”, przekraczanie 10 na Łące |
 | Za dużo zadań = zmęczenie; za mało = mała wartość nauki | [HIPOTEZA, pewność 3] | motywacja | strojenie długości walk po pierwszych sesjach, dane w panelu |
@@ -848,17 +873,19 @@ CI (propozycja): GitHub Actions — lint, typecheck, testy, build przy każdym p
 
 ---
 
-## 24. Otwarte pytania do rodzica
+## 24. Decyzje (v0.2) — dawne otwarte pytania
 
-1. **Jaki pad?** (Xbox / PlayStation / 8BitDo / inny) — wpływa na ikony i testy.
-2. **Łąka tylko z dodawaniem czy od razu „wszystkie działania w walce”?** Dziecko zna wszystkie cztery; sama Łąka może być za łatwa. Rekomendacja: tematyczne krainy + kalibracja; jeśli po 2–3 sesjach dziecko się nudzi, włączyć „wszystkie”.
-3. **Zakres liczb na start:** do 20 czy do 100?
-4. **Domyślny limit czasu:** zgoda na „Brak → Łagodny po 1. wyprawie”?
-5. **Czy dziecko płynnie czyta?** — ile tekstu w dialogach i czy potrzebny lektor.
-6. **Imię/pseudonim w grze** — czy w ogóle, czy tylko wybór wyglądu.
-7. **Nazwy** (Plusik, Dopełniak, Bliźniak, Koniczynek, Chwastor) — do akceptacji lub wymiany (dobrze, jeśli dziecko samo coś nazwie).
+Rodzic: „rób jak uważasz za słuszne”. Przyjęte:
 
----
+| Pytanie | Decyzja | Jak zmienić |
+|---|---|---|
+| Pad | po MVP (etap 2a); MVP tylko dotyk | — |
+| Łąka: tylko dodawanie czy wszystko? | **tematycznie + kalibracja**; dodatkowo etap Ł4 obejmuje **przekraczanie 10** (dziecko je zna, bez tego Łąka byłaby za łatwa); przełącznik „wszystkie działania w walce” w panelu rodzica | panel rodzica |
+| Zakres liczb | **do 20** | panel rodzica: do 10 / 20 / 100 |
+| Limit czasu | **Brak** do końca pierwszej wyprawy, potem **Łagodny** | panel rodzica |
+| Ilość tekstu | krótkie zdania, ikony; lektor jako propozycja na później | — |
+| Imię w grze | opcjonalny pseudonim, domyślnie „Bohater” | ekran startowy / panel |
+| Nazwy stworków i brainrotów | jak w sekcjach 13.1–13.3 | jeden plik danych `content/` |
 
 ## 25. Propozycje (moje pomysły, poza specyfikacją rodzica)
 
