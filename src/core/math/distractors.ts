@@ -268,10 +268,12 @@ export function makeDistractors(input: DistractorInput, count: number, rng: Rng)
 
   // „Rozsądny zakres”: nie dalej niż max(10, answer) ponad odpowiedź.
   const cap = answer + Math.max(10, answer);
+  // W tabliczce mnożenia i dzieleniu 0 nie jest wiarygodną odpowiedzią (i nie może być dzielnikiem).
+  const minValue = input.op === 'mul' || input.op === 'div' ? Math.min(1, answer) : 0;
   const best = new Map<number, Candidate>();
   for (const cand of plausible(input)) {
     const v = cand.value;
-    if (!Number.isInteger(v) || v < 0 || v === answer || v > cap) continue;
+    if (!Number.isInteger(v) || v < minValue || v === answer || v > cap) continue;
     const weight = v === 0 ? cand.weight * 0.3 : cand.weight;
     const prev = best.get(v);
     if (prev === undefined) {
@@ -285,8 +287,8 @@ export function makeDistractors(input: DistractorInput, count: number, rng: Rng)
   const below = pool.filter((c) => c.value < answer);
   const above = pool.filter((c) => c.value > answer);
 
-  // Liczba opcji poniżej odpowiedzi — równomiernie (w granicach możliwości: wartości 0..answer−1).
-  const nBelow = rng.int(0, Math.min(count, answer));
+  // Liczba opcji poniżej odpowiedzi — równomiernie (w granicach możliwości: wartości minValue..answer−1).
+  const nBelow = rng.int(0, Math.min(count, answer - minValue));
   const nAbove = count - nBelow;
   const used = new Set<number>([answer]);
   const picked: Distractor[] = [];

@@ -54,11 +54,12 @@ export function addDigits(inv: Digits, ds: readonly number[]): void {
 
 /** Dodaje liczniki (np. „dar bramy”) do skarbca (mutuje `inv`). */
 export function addDigitCounts(inv: Digits, counts: Digits): void {
+  // Najpierw walidacja całości — przy błędzie `inv` bez zmian.
   for (let d = 0; d < DIGIT_KINDS; d++) {
     const n = counts[d] ?? 0;
     if (!Number.isInteger(n) || n < 0) throw new RangeError(`Nieprawidłowy licznik cyfry ${d}: ${n}`);
-    inv[d] = (inv[d] ?? 0) + n;
   }
+  for (let d = 0; d < DIGIT_KINDS; d++) inv[d] = (inv[d] ?? 0) + (counts[d] ?? 0);
 }
 
 /** Cyfry z `ds`, których brakuje w `inv` (multizbiór, rosnąco). Niepoprawne cyfry zawsze „brakują”. */
@@ -95,6 +96,7 @@ export function countDigits(inv: Digits): number {
 
 /** Cyfry liczby naturalnej w kolejności zapisu (54 → [5, 4], 0 → [0]). */
 export function digitsOfNumber(n: number): number[] {
-  if (!Number.isInteger(n) || n < 0) throw new RangeError(`digitsOfNumber: oczekiwano liczby naturalnej, jest ${n}`);
+  // Tylko bezpieczne liczby całkowite: od 1e21 String() daje zapis wykładniczy.
+  if (!Number.isSafeInteger(n) || n < 0) throw new RangeError(`digitsOfNumber: oczekiwano liczby naturalnej, jest ${n}`);
   return String(n).split('').map(Number);
 }

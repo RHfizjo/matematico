@@ -1,0 +1,202 @@
+/**
+ * Dungeon „Nora pod Starym Dębem” (GDD 11): pokój w jaskini pod dębem.
+ * Ściany z korzeni/ziemi tylko z tyłu i po bokach (od kamery niski brzeg — nic nie zasłania bohatera).
+ * Warianty: fight (hero-spot, enemy-spot-0/1), chest (piedestał 'chest'), rest (ognisko 'campfire'),
+ * boss (większa sala z chwastami i kwiatami). Zawsze 'exit'.
+ */
+import type { RoomKind } from '../../game/contracts';
+import { B } from '../voxel/blocks';
+import { fbm2, hash2 } from '../util/rng';
+import { SceneBuilder } from './builder';
+import type { SceneBuild } from './types';
+import { FACING_CAMERA, SCREEN_RIGHT, SCREEN_UP } from '../constants';
+
+const F = 10; // y najwyższej kostki podłogi
+
+export function buildDungeonRoom(seed: number, kind: RoomKind, index: number): SceneBuild {
+  const b = new SceneBuilder('dungeon-room', (seed ^ (index * 7919 + 13)) >>> 0);
+  const s = b.seed;
+  const boss = kind === 'boss';
+  const W = boss ? 28 : 20;
+  const D = boss ? 20 : 16;
+  const x0 = -W / 2;
+  const x1 = W / 2 - 1;
+  const z0 = -D / 2;
+  const z1 = D / 2 - 1;
+  const wallH = boss ? 7 : 6;
+
+  // ── Podłoga z plamami mchu, kamieni i ziemi.
+  for (let z = z0 - 4; z <= z1 + 2; z++)
+    for (let x = x0 - 4; x <= x1 + 4; x++) {
+      for (let y = F - 3; y <= F; y++) b.world.set(x, y, z, y === F - 3 ? B.stone : B.dirt);
+      const n = fbm2(x * 0.11, z * 0.11, s + 3, 3);
+      const r = hash2(x, z, s);
+      let top: number = B.caveFloor;
+      if (n > 0.64 || (boss && n > 0.52)) top = B.caveMoss;
+      else if (n > 0.6 && r < 0.5) top = B.caveMoss;
+      else if (n < 0.27) top = B.cobble;
+      else if (n < 0.31 && r < 0.5) top = B.cobble;
+      b.world.set(x, F, z, top);
+    }
+
+  // ── Ściany: tył (północ) wysoki, boki opadają ku kamerze, przód — niski brzeg z korzeni.
+  const wallCol = (x: number, z: number, h: number): void => {
+    for (let y = F + 1; y <= F + h; y++) {
+      const r = hash2(x * 7 + y, z * 3, s + 11);
+      const rootCol = hash2(x, z * 13, s + 12) < 0.22;
+      let id: number = y <= F + 1 ? (r < 0.5 ? B.stone : B.cobble) : rootCol ? B.root : r < 0.08 ? B.stone : B.dirt;
+      if (y === F + h) id = r < 0.75 ? B.caveMoss : B.root;
+      b.world.set(x, y, z, id);
+    }
+  };
+  for (let x = x0 - 4; x <= x1 + 4; x++)
+    for (let z = z0 - 4; z < z0; z++) {
+      const h = wallH + Math.round((fbm2(x * 0.3, z * 0.3, s + 5, 2) - 0.5) * 3) - (z === z0 - 1 && hash2(x, z, s + 2) < 0.3 ? 1 : 0);
+      wallCol(x, z, Math.max(3, h));
+    }
+  for (let z = z0; z <= z1 + 2; z++) {
+    const t = (z - z0) / (z1 - z0 + 2); // 0 z tyłu → 1 z przodu
+    for (const side of [-1, 1]) {
+      for (let k = 0; k < 4; k++) {
+        const x = side < 0 ? x0 - 1 - k : x1 + 1 + k;
+        const base = Math.round(wallH * (1 - t * 0.85)) + (k > 0 ? 1 : 0);
+        const h = Math.max(1, base + Math.round((hash2(x, z, s + 17) - 0.5) * 2));
+        wallCol(x, z, h);
+      }
+    }
+  }
+  // Przód: niski brzeg korzeni z przerwą na wejście.
+  for (let x = x0; x <= x1; x++) {
+    if (Math.abs(x + 0.5) < 2) continue;
+    if (hash2(x, 99, s) < 0.7) b.world.set(x, F + 1, z1 + 1, hash2(x, 98, s) < 0.5 ? B.root : B.caveMoss);
+  }
+
+  // ── Wyjście: przejście w tylnej ścianie z latarniami.
+  for (let y = F + 1; y <= F + 3; y++)
+    for (let x = -1; x <= 0; x++) {
+      b.world.set(x, y, z0 - 1, 0);
+      b.world.set(x, y, z0 - 2, 0);
+    }
+  for (let x = -1; x <= 0; x++) for (let y = F + 1; y <= F + 3; y++) b.world.set(x, y, z0 - 3, B.darkPlanks);
+  for (const x of [-2, 1]) for (let y = F + 1; y <= F + 4; y++) b.world.set(x, y, z0 - 1, B.stoneBrick);
+  for (let x = -2; x <= 1; x++) b.world.set(x, F + 4, z0 - 1, B.stoneBrick);
+  b.poi('exit', 'exit', 0, z0 + 1.2, 2);
+  for (const lx of [-2.6, 2.6]) {
+    b.prop('prop:lantern', lx, z0 + 0.6, { collider: 0.35 });
+    b.light({ x: lx, y: F + 2.6, z: z0 + 0.9, color: '#ffb45c', intensity: 7, distance: 8 });
+  }
+  b.reserve(0, z0 + 1, 2.5);
+
+  // ── Świecące grzybki i kryształki (drobne instancje) przy ścianach i w kątach.
+  const clusters = boss ? 12 : 9;
+  for (let i = 0; i < clusters; i++) {
+    const edge = b.rng.int(0, 2);
+    const cx = edge === 0 ? b.rng.range(x0 + 0.6, x0 + 2) : edge === 1 ? b.rng.range(x1 - 1, x1 + 0.4) : b.rng.range(x0 + 1, x1);
+    const cz = edge === 2 ? b.rng.range(z0 + 0.4, z0 + 1.8) : b.rng.range(z0 + 0.5, z1 - 2);
+    if (b.isReserved(cx, cz)) continue;
+    const crystal = b.rng.chance(0.4);
+    const col = crystal ? b.rng.pick(['#a58dff', '#7fe3ff', '#ff9ee0']) : b.rng.pick(['#7cf0ff', '#b99bff', '#9dffb0']);
+    const n = b.rng.int(3, 6);
+    for (let k = 0; k < n; k++) b.foliageAt(crystal ? 'crystal' : 'mushroom', cx + b.rng.range(-0.8, 0.8), cz + b.rng.range(-0.8, 0.8), col, b.rng.range(0.8, 1.5));
+  }
+  // Kryształy w ścianach (jak żyły rudy) i grzybki na szczytach ścian (widoczne z góry).
+  for (let x = x0 - 3; x <= x1 + 3; x++)
+    for (let z = z0 - 3; z <= z1; z++) {
+      if (x >= x0 && x <= x1 && z >= z0) continue;
+      const t = b.top(x, z);
+      const r = hash2(x, z, s + 29);
+      if (r < 0.05) b.foliageAt('mushroom', x + 0.5, z + 0.5, hash2(z, x, s) < 0.5 ? '#7cf0ff' : '#ff9ee0', 1.4);
+      else if (r < 0.08 && t > F + 2) b.world.set(x, t - 1, z, hash2(z, x, s + 1) < 0.5 ? B.crystal : B.pinkCrystal);
+    }
+
+  // Stalagmity.
+  for (let i = 0; i < (boss ? 7 : 4); i++) {
+    const x = Math.floor(b.rng.range(x0 + 1, x1 - 1));
+    const z = Math.floor(b.rng.range(z0 + 1, z0 + 4));
+    const h = b.rng.int(1, 3);
+    for (let y = 1; y <= h; y++) b.world.set(x, F + y, z, y === h ? B.cobble : B.stone);
+  }
+
+  // ── Środek pokoju i ustawienie walki wzdłuż „prawo na ekranie”.
+  const C = { x: 0, z: boss ? 1.5 : 1 };
+  const at = (right: number, up: number): { x: number; z: number } => ({
+    x: C.x + SCREEN_RIGHT.x * right + SCREEN_UP.x * up,
+    z: C.z + SCREEN_RIGHT.z * right + SCREEN_UP.z * up,
+  });
+  const heroSpot = at(boss ? -4.2 : -3.4, 0);
+  const enemy0 = at(boss ? 4.2 : 3.4, 0.4);
+  const enemy1 = at(boss ? 7 : 6.2, 2.4);
+  b.poi('hero-spot', 'heroSpot', heroSpot.x, heroSpot.z, 1);
+  b.poi('enemy-spot-0', 'enemySpot', enemy0.x, enemy0.z, 1.5);
+  b.poi('enemy-spot-1', 'enemySpot', enemy1.x, enemy1.z, 1.5);
+  b.reserve(heroSpot.x, heroSpot.z, 1.5);
+  b.reserve(enemy0.x, enemy0.z, 2);
+  b.reserve(enemy1.x, enemy1.z, 1.5);
+
+  let spawn = { x: 0.5, z: z1 - 0.5 };
+  if (kind === 'fight' || kind === 'boss') {
+    spawn = { ...heroSpot };
+    // Arena: krąg ubitej ziemi.
+    b.disc(C.x, C.z, boss ? 6.5 : 5, (x, z, d) => {
+      if (d < (boss ? 5.2 : 4) || hash2(x, z, s + 41) < 0.5) b.setTop(x, z, B.caveFloor);
+    });
+  }
+
+  if (kind === 'chest') {
+    // Piedestał 3×3 z cegły kamiennej, na nim skrzynia.
+    const pc = { x: 0, z: -1 };
+    for (let z = pc.z - 1; z <= pc.z + 1; z++) for (let x = pc.x - 1; x <= pc.x + 1; x++) b.world.set(x, F + 1, z, B.stoneBrick);
+    b.world.set(pc.x - 1, F + 1, pc.z - 1, B.crystal);
+    b.world.set(pc.x + 1, F + 1, pc.z - 1, B.crystal);
+    b.prop('prop:chest', pc.x + 0.5, pc.z + 0.5, { facing: FACING_CAMERA, poi: 'chest', collider: 0.7 });
+    b.poi('chest', 'chest', pc.x + 0.5, pc.z + 2.6, 2.2);
+    b.light({ x: pc.x + 0.5, y: F + 3, z: pc.z + 0.5, color: '#b9a4ff', intensity: 5, distance: 7 });
+  }
+
+  if (kind === 'rest') {
+    const cf = { x: 0.5, z: 0.5 };
+    b.prop('prop:campfire', cf.x, cf.z, { poi: 'campfire', collider: 0.9 });
+    b.poi('campfire', 'campfire', cf.x, cf.z + 2, 2.4);
+    b.light({ x: cf.x, y: F + 2, z: cf.z, color: '#ff9848', intensity: 14, distance: 12, flicker: true });
+    // Kłody do siedzenia.
+    b.box([cf.x - 3, F + 1, cf.z - 0.4], [cf.x - 2, F + 1.5, cf.z + 0.5], B.log);
+    b.box([cf.x + 2, F + 1, cf.z - 0.6], [cf.x + 3.1, F + 1.5, cf.z + 0.3], B.log);
+    b.block(cf.x - 2.5, cf.z);
+    b.block(cf.x + 2.5, cf.z);
+    b.disc(cf.x, cf.z, 3.5, (x, z) => b.setTop(x, z, B.gravel));
+    spawn = { x: 0.5, z: z1 - 0.5 };
+  }
+
+  if (boss) {
+    // Chwasty i kwiaty (Kosiarrini Chwastorrini).
+    for (let z = z0; z <= z1; z++)
+      for (let x = x0; x <= x1; x++) {
+        if (b.isReserved(x, z)) continue;
+        const r = hash2(x, z, s + 51);
+        if (r < 0.35) b.foliageAt('tallGrass', x + 0.5, z + 0.5, r < 0.1 ? '#8fcf3f' : '#5fa83a', 1.5);
+        else if (r < 0.45) b.foliageAt('flower', x + 0.5, z + 0.5, ['#ffd23f', '#ff7eb6', '#ffffff', '#c59bff'][Math.floor(r * 40) % 4] ?? '#fff', 1.2);
+      }
+    // Pnącza na tylnej ścianie.
+    for (let i = 0; i < 5; i++) {
+      const x = x0 + 2 + (i * (W - 4)) / 4;
+      b.prop('prop:vine', x, z0 + 0.2, { collider: false, facing: 0 });
+    }
+  } else {
+    b.scatterFoliage(x0, x1, z0, z1, 0.5, 0.15, [B.caveMoss, B.moss, B.grass]);
+  }
+
+  // Snop światła z góry (dziura w sklepieniu pod dębem).
+  const shafts = [{ x: C.x - 1.5, z: C.z - 2, y: F + 1, radius: boss ? 6 : 4.5 }];
+  b.poi('spawn', 'spawn', spawn.x, spawn.z, 1);
+
+  const bounds = { minX: x0, maxX: x1 + 1, minZ: z0, maxZ: z1 + 1 };
+  return b.finish({
+    bounds,
+    spawn,
+    spawnFacing: Math.PI,
+    outdoor: false,
+    island: { cx: 0, cz: 0, radius: Math.max(W, D) / 2, bottomY: F - 3, surfaceY: F },
+    palette: 'cave',
+    lightShafts: shafts,
+  });
+}

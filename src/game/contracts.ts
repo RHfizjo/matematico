@@ -146,6 +146,11 @@ export interface Poi {
   pos: Vec2;
   /** Promień interakcji (kostki). */
   radius: number;
+  /**
+   * Encja rekwizytu postawionego przez scenę dla tego POI (np. skrzynia, brama, nora, Kartonini przy
+   * 'station-karty') — do play('open'), setHighlight, despawn. Brak = scena nie stawia rekwizytu.
+   */
+  entity?: EntityId;
 }
 
 export interface SceneInfo {

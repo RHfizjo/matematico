@@ -63,6 +63,18 @@ function jumpsTo10(a: number): number[] {
 /** Skoki doliczania o x: do 5 — po 1, większe — jeden skok. */
 const countJumps = (x: number): number[] => (x <= 5 ? ones(x) : [x]);
 
+/** "lewa = środek = wynik" (środek pomijany, gdy taki sam jak lewa strona). */
+function chain(left: string, middle: string, result: number): string {
+  return middle === left ? `${left} = ${result}` : `${left} = ${middle} = ${result}`;
+}
+
+/** „dziesiątka / dziesiątki / dziesiątek” dla n = 1..9. */
+function tensWord(n: number): string {
+  if (n === 1) return 'dziesiątka';
+  if (n >= 2 && n <= 4) return 'dziesiątki';
+  return 'dziesiątek';
+}
+
 /** Czy tekst zawiera „= wynik”. */
 function revealsAnswer(text: string, answer: number): boolean {
   return new RegExp(`=\\s*${answer}(?!\\d)`).test(text);
@@ -141,7 +153,8 @@ function teenAdd(a: number, b: number): HintCore {
       numberLine: { from: t, jumps: [u] },
     };
   }
-  if (tu + u <= 9) {
+  if (tu + u <= 10) {
+    // 12 + 5 → 2 + 5 = 7, 10 + 7 = 17; 17 + 3 → 7 + 3 = 10, 10 + 10 = 20
     return {
       strategy: 'tens',
       steps: [plus(tu, u), plus(tt, tu + u)],
@@ -171,12 +184,19 @@ function tensAdd(a: number, b: number): HintCore {
   const tb = b - ub;
   const T = ta + tb;
   const U = ua + ub;
-  const steps = U > 0 ? [plus(ta, tb), plus(ua, ub), plus(T, U)] : [plus(ta, tb)];
+  // Jedności: gdy obie niezerowe — osobne dodawanie; gdy jedna zerowa — od razu do sumy dziesiątek.
+  const steps = [plus(ta, tb)];
+  if (ua > 0 && ub > 0) steps.push(plus(ua, ub));
+  if (U > 0) steps.push(plus(T, U));
+  const parts = [ta, tb, ua, ub].filter((v) => v !== 0);
   return {
     strategy: 'tens',
     steps,
-    summary: `${a} + ${b} = ${ta} + ${tb} + ${ua} + ${ub} = ${a + b}`,
-    firstStep: `Najpierw dziesiątki: ${plus(ta, tb)}.`,
+    summary: chain(`${a} + ${b}`, parts.join(' + '), a + b),
+    firstStep:
+      U === 0
+        ? `Licz dziesiątkami: ${ta / 10} ${tensWord(ta / 10)} i ${tb / 10} ${tensWord(tb / 10)}.`
+        : `Najpierw dziesiątki: ${plus(ta, tb)}.`,
     numberLine: { from: a, jumps: [tb, ub].filter((j) => j !== 0) },
   };
 }
@@ -202,6 +222,8 @@ function addHint(cat: CategoryId, a: number, b: number): HintCore {
   if (a >= 10 && b >= 10 && (a !== b || isTwoDigitCategory(cat))) return tensAdd(a, b);
   if (a === b) return doublesAdd(a);
   if (s === 10) return pairs10Add(a, b);
+  // 8 i 9 są blisko 10 → dopełnianie (8 + 7); inne sąsiednie liczby → prawie podwojenie (6 + 7).
+  if (big <= 9 && s >= 11 && big >= 8) return make10(a, b);
   if (big - small === 1 && small >= 2 && big <= 9) return nearDouble(a, b);
   if (big <= 9 && s >= 11) return make10(a, b);
   if (big >= 10) return teenAdd(a, b);
@@ -222,7 +244,7 @@ function threeHint(terms: number[]): HintCore {
     return {
       strategy: 'pairs10',
       steps: [plus(p, q), plus(10, rest)],
-      summary: `${x} + ${y} + ${z} = ${p} + ${q} + ${rest} = ${s}`,
+      summary: chain(`${x} + ${y} + ${z}`, `${p} + ${q} + ${rest}`, s),
       firstStep: `Szukaj pary do 10 — ${plus(p, q)}, a potem dodaj jeszcze ${rest}.`,
       numberLine: { from: p, jumps: [q, rest] },
     };
@@ -309,7 +331,10 @@ function tensSub(m: number, s: number): HintCore {
       strategy: 'tens',
       steps: um > 0 ? [minus(tm, ts), plus(T, um)] : [minus(m, s)],
       summary: um > 0 ? `${m} ${MINUS} ${s} = ${T} + ${um} = ${r}` : minus(m, s),
-      firstStep: `Najpierw dziesiątki: ${minus(tm, ts)}.`,
+      firstStep:
+        um === 0
+          ? `Licz dziesiątkami: ${tm / 10} ${tensWord(tm / 10)} odjąć ${ts / 10} ${tensWord(ts / 10)}.`
+          : `Najpierw dziesiątki: ${minus(tm, ts)}.`,
       numberLine: { from: m, jumps: [-ts] },
     };
   }
@@ -342,7 +367,11 @@ function subHint(m: number, s: number): HintCore {
         strategy: 'tens',
         steps: [minus(um, s), plus(tm, um - s)],
         summary: `${m} ${MINUS} ${s} = ${tm} + ${um - s} = ${m - s}`,
-        firstStep: `Najpierw jedności: ${minus(um, s)}, a ${tm} zostaje.`,
+        // Przy s = jedności (15 − 5) „a 10 zostaje” zdradzałoby wynik.
+        firstStep:
+          s === um
+            ? `Najpierw jedności: ${minus(um, s)}. Co zostaje z liczby ${m}?`
+            : `Najpierw jedności: ${minus(um, s)}, a ${tm} zostaje.`,
         numberLine: { from: m, jumps: [-s] },
       };
     }
@@ -513,7 +542,8 @@ function addMissing(cat: CategoryId, k: number, s: number, x: number): HintCore 
       numberLine: { from: k, jumps: [k] },
     };
   }
-  if (isTwoDigitCategory(cat) || (k >= 10 && s >= 20)) {
+  // Skoki o pełne dziesiątki tylko, gdy niewiadoma ma dziesiątki (20 − □ = 15 → doliczanie).
+  if (x >= 10 && (isTwoDigitCategory(cat) || (k >= 10 && s >= 20))) {
     const U = x % 10;
     const T = x - U;
     const steps: string[] = [];
@@ -529,6 +559,20 @@ function addMissing(cat: CategoryId, k: number, s: number, x: number): HintCore 
           ? `${plus(k, T)}, a do ${s} brakuje jeszcze ${U}.`
           : `Skacz od ${k} do ${s} — najpierw o pełne dziesiątki.`,
       numberLine: { from: k, jumps: [T, U].filter((j) => j !== 0) },
+    };
+  }
+  if (k <= 9 && s >= 11 && s <= 19 && s % 10 >= k) {
+    // □ + 5 = 17 → 7 − 5 = 2, 10 + 2 = 12
+    const d = (s % 10) - k;
+    return {
+      strategy: 'tens',
+      steps: d > 0 ? [minus(s % 10, k), plus(10, d)] : [plus(k, 10)],
+      summary: plus(k, x),
+      firstStep:
+        d > 0
+          ? `Najpierw jedności: ${minus(s % 10, k)}, a potem dodaj 10.`
+          : `Porównaj jedności w liczbach ${k} i ${s}. Co jeszcze trzeba dodać?`,
+      numberLine: { from: k, jumps: d > 0 ? [10, d] : [10] },
     };
   }
   if (k <= 9 && s >= 11 && s <= 19) {

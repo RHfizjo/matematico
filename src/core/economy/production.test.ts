@@ -97,6 +97,22 @@ describe('produce (GDD 9.3)', () => {
     }
   });
 
+  it('pełne zakresy cyfr (Plusik 1..5, pary 1..9 z 5+5, bliźniaki 1..9, Koniczynek 6..9)', () => {
+    const seen = { small: new Set<number>(), pairs: new Set<number>(), twins: new Set<number>(), rare: new Set<number>() };
+    const rng = createRng(7);
+    for (let i = 0; i < 500; i++) {
+      for (const d of produce(owned('plusik', 1), DEFS.plusik, i, rng)) seen.small.add(d);
+      seen.pairs.add(produce(owned('dopelniak', 1), DEFS.dopelniak, i, rng)[0]!);
+      seen.twins.add(produce(owned('blizniak', 1), DEFS.blizniak, i, rng)[0]!);
+      seen.rare.add(produce(owned('koniczynek', 1), DEFS.koniczynek, 1, rng)[0]!);
+    }
+    const sorted = (s: Set<number>) => [...s].sort((a, b) => a - b);
+    expect(sorted(seen.small)).toEqual([1, 2, 3, 4, 5]);
+    expect(sorted(seen.pairs)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(sorted(seen.twins)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(sorted(seen.rare)).toEqual([6, 7, 8, 9]);
+  });
+
   it('poziom poza 1..3 jest przycinany', () => {
     expect(creatureLevel(owned('plusik', 0))).toBe(1);
     expect(creatureLevel(owned('plusik', 7))).toBe(3);

@@ -352,6 +352,19 @@ describe('gateGift i makeGate', () => {
     expect(hits / N).toBeLessThan(0.65);
   });
 
+  it('makeGate: cele pokrywają cały zakres (oba końce)', () => {
+    for (const [land, range] of [['meadow', 20], ['meadow', 10], ['castle', 100]] as const) {
+      const { min, max } = gateTargetRange(land, range);
+      const seen = new Set<number>();
+      for (let seed = 0; seed < 3000; seed++) {
+        seen.add(makeGate({ rng: createRng(seed), land, range, inventory: startingDigits(), ops: ['+'] }).target);
+      }
+      expect(Math.min(...seen)).toBe(min);
+      expect(Math.max(...seen)).toBe(max);
+      expect(seen.size).toBe(max - min + 1);
+    }
+  });
+
   it('makeGate: bez działań rzuca wyjątek', () => {
     expect(() =>
       makeGate({ rng: createRng(1), land: 'meadow', range: 20, inventory: startingDigits(), ops: [] }),

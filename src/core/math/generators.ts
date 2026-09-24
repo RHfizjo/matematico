@@ -3,7 +3,8 @@
  * proceduralne budują działanie wg definicji z types.ts.
  *
  * Wywołujący odpowiada za dostępność kategorii (isCategoryAvailable) — dla zakresu
- * mniejszego niż minRange kategorii generator rzuca RangeError.
+ * mniejszego niż minRange kategorii generator rzuca RangeError. Zadany factId musi należeć
+ * do factsOf(kategoria, ustawienia) — inaczej błąd (RangeError, gdy fakt jest tylko poza zakresem).
  */
 import type { Rng } from '../rng';
 import type { CategoryId, DistractorKind, FactId, ParentSettings, Task, TaskFormat } from '../types';
@@ -136,6 +137,10 @@ export function generateTask(args: GenerateTaskArgs): Task {
     if (factId !== null) {
       if (!categoriesOfFact(factId).includes(categoryId)) {
         throw new Error(`Fakt ${factId} nie należy do kategorii ${categoryId}`);
+      }
+      // Fakt musi też mieścić się w puli przy danym zakresie (add:6+6 nie przy zakresie 10).
+      if (!(factsOf(categoryId, settings) ?? []).includes(factId)) {
+        throw new RangeError(`Fakt ${factId} jest poza zakresem ${settings.range} w kategorii ${categoryId}`);
       }
       fact = factId;
     } else {

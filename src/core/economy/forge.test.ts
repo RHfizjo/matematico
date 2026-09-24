@@ -70,6 +70,35 @@ describe('forgeCost', () => {
   });
 });
 
+describe('forgeCost — dowolne id', () => {
+  it('właściwość: zakres sumy wg poziomu i zapłata możliwa ze startowego skarbca', () => {
+    fc.assert(
+      fc.property(fc.string({ maxLength: 30 }), fc.constantFrom(1, 2), (id, level) => {
+        const cost = forgeCost(item(id), level)!;
+        const [min, max] = level === 1 ? [10, 15] : [15, 24];
+        expect(cost.count).toBe(3);
+        expect(cost.sum).toBeGreaterThanOrEqual(min);
+        expect(cost.sum).toBeLessThanOrEqual(max);
+        expect(forgeCost(item(id), level)).toEqual(cost);
+        const pay = findForgePayment(cost, startingDigits());
+        expect(pay).not.toBeNull();
+        expect(checkForgePayment(pay!, cost, startingDigits()).ok).toBe(true);
+      }),
+    );
+  });
+
+  it('cały zakres sum jest wykorzystywany', () => {
+    const seen1 = new Set<number>();
+    const seen2 = new Set<number>();
+    for (let i = 0; i < 500; i++) {
+      seen1.add(forgeCost(item(`p-${i}`), 1)!.sum);
+      seen2.add(forgeCost(item(`p-${i}`), 2)!.sum);
+    }
+    expect([...seen1].sort((a, b) => a - b)).toEqual([10, 11, 12, 13, 14, 15]);
+    expect([...seen2].sort((a, b) => a - b)).toEqual([15, 16, 17, 18, 19, 20, 21, 22, 23, 24]);
+  });
+});
+
 describe('checkForgePayment', () => {
   const cost = { sum: 15, count: 3 };
   const inv = startingDigits();

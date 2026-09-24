@@ -53,6 +53,22 @@ describe('openChest — zawartość', () => {
     );
   });
 
+  it('pełne zakresy liczby cyfr i wszystkie cyfry możliwe', () => {
+    const lens: Record<'world' | 'dungeon', Set<number>> = { world: new Set(), dungeon: new Set() };
+    const seen = new Set<number>();
+    const rng = createRng(123);
+    for (let i = 0; i < 2000; i++) {
+      for (const kind of ['world', 'dungeon'] as const) {
+        const r = openChest({ kind, pity: 0, rng, itemPool: [] });
+        lens[kind].add(r.loot.digits.length);
+        for (const d of r.loot.digits) seen.add(d);
+      }
+    }
+    expect([...lens.world].sort()).toEqual([2, 3, 4]);
+    expect([...lens.dungeon].sort()).toEqual([3, 4, 5]);
+    expect(seen.size).toBe(10);
+  });
+
   it('deterministyczne dla ziarna', () => {
     const a = openChest({ kind: 'dungeon', pity: 1, rng: createRng(9), itemPool: ['x', 'y'] });
     const b = openChest({ kind: 'dungeon', pity: 1, rng: createRng(9), itemPool: ['x', 'y'] });

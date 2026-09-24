@@ -65,6 +65,20 @@ describe('digits', () => {
     expect(inv[9]).toBe(3);
   });
 
+  it('addDigitCounts: błędny licznik → wyjątek bez częściowej zmiany (regresja)', () => {
+    const inv = startingDigits();
+    expect(() => addDigitCounts(inv, [1, 1, -1, 0, 0, 0, 0, 0, 0, 0])).toThrow(RangeError);
+    expect(inv).toEqual(startingDigits());
+    expect(() => addDigitCounts(inv, [0, 0, 0, 0, 0, 0, 0, 0, 0, 1.5])).toThrow(RangeError);
+    expect(inv).toEqual(startingDigits());
+  });
+
+  it('digitsOfNumber: duże liczby — nigdy NaN (regresja: 1e21 → zapis wykładniczy)', () => {
+    expect(digitsOfNumber(Number.MAX_SAFE_INTEGER)).toEqual([...String(Number.MAX_SAFE_INTEGER)].map(Number));
+    expect(() => digitsOfNumber(1e21)).toThrow(RangeError);
+    expect(() => digitsOfNumber(Number.MAX_SAFE_INTEGER + 1)).toThrow(RangeError);
+  });
+
   it('digitsOfNumber', () => {
     expect(digitsOfNumber(54)).toEqual([5, 4]);
     expect(digitsOfNumber(0)).toEqual([0]);
