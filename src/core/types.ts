@@ -412,6 +412,16 @@ export interface CardBattleState {
   uidCounter: number;
 }
 
+/** Skąd dziecko dostaje karty (content/cards.ts → CARD_GRANTS). */
+export interface CardGrants {
+  /** Talia startowa: id karty → liczba kopii. */
+  starter: Record<string, number>;
+  /** Karty stworka: przy złapaniu (onCatch kopii) i przy awansie na poziom 2 (onLevelUp kopii). Poziom 3: +25% siły kart stworka. */
+  creatures: Record<string, { cardId: string; onCatch: number; onLevelUp: number }>;
+  /** Karta brainglama: id brainrota → id karty (+1 kopia przy każdej przemianie). */
+  glams: Record<string, string>;
+}
+
 export type TradeOffer =
   | { id: string; kind: 'threeForOne'; cardId: string }
   | { id: string; kind: 'daily'; cardId: string; price: ForgeCost }
@@ -605,6 +615,8 @@ export interface SaveV1 {
   settings: ParentSettings;
   model: SkillModel;
   inventory: { digits: Digits };
+  /** Karty (GDD v0.3): liczba posiadanych kopii wg id karty. */
+  cards: { owned: Record<string, number> };
   creatures: OwnedCreature[];
   equipment: {
     owned: OwnedItem[];
@@ -630,9 +642,15 @@ export interface SaveV1 {
       roomIndex: number;
       enemyCzar: Record<string, number>;
       bossPhase: number;
+      /** Pozostałe pnącza bossa (faza 2) — zachowane przy wznowieniu. */
+      vines: number;
+      /** HP bohatera przenoszone między pokojami (null = pełne). Ognisko przywraca pełne HP. */
+      heroHp: number | null;
     };
     /** Bonusowa skrzynka czeka na otwarcie w dungeonie (sprytna brama). */
     pendingBonusChest: boolean;
+    /** Cykl, w którym kupiono ofertę dnia u handlarza (−1 = nigdy). */
+    merchantDailyCycle: number;
   };
   history: AttemptLog[];
   sessions: SessionLog[];
