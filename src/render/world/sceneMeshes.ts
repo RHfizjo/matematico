@@ -16,13 +16,20 @@ export const MESH_CHUNK = 32;
 
 export interface TreeObject {
   mesh: THREE.Mesh;
-  /** Obszar zasłaniania (świat). */
+  /** Obszar zasłaniania (świat) — szybki test wstępny. */
   box: THREE.Box3;
+  /** Wolumen drzewa (dokładny test kostek) i przekształcenie świat → wolumen. */
+  vol: TreeVolume;
+  worldToVol: THREE.Matrix4;
   fade: number;
   target: number;
   opaqueMat: THREE.Material;
   fadeMat: THREE.MeshLambertMaterial | null;
+  /** Przebieg tylko-głębia przed półprzezroczystym (widać tylko przednią powierzchnię „ducha”). */
+  depthMesh: THREE.Mesh | null;
 }
+
+const depthOnlyMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true, transparent: true });
 
 export interface FlickerLight {
   light: THREE.PointLight;
@@ -107,6 +114,12 @@ function decorGeometry(build: SceneBuild, shadow: boolean): THREE.BufferGeometry
 }
 
 const treeGeoCache = new Map<string, { geo: THREE.BufferGeometry; vol: TreeVolume }>();
+
+/** Zwalnia wspólne geometrie drzew (dispose całego renderu). */
+export function clearTreeCache(): void {
+  for (const v of treeGeoCache.values()) v.geo.dispose();
+  treeGeoCache.clear();
+}
 
 function treeGeometry(kind: TreeKind, variantSeed: number): { geo: THREE.BufferGeometry; vol: TreeVolume } {
   const key = `${kind}:${variantSeed}`;
@@ -235,7 +248,8 @@ export async function buildSceneMeshes(build: SceneBuild, opts: { seed: number; 
     const box = new THREE.Box3().setFromObject(mesh);
     // Strefa zasłaniania: korona i pień (bez samego dołu, żeby nie zanikały od stóp bohatera).
     box.min.y = t.y + Math.min(1.2, vol.height * 0.3);
-    trees.push({ mesh, box, fade: 1, target: 1, opaqueMat: terrainMat, fadeMat: null });
+    const worldToVol = new THREE.Matrix4().makeTranslation(vol.px, 0, vol.pz).multiply(mesh.matrixWorld.clone().invert());
+    trees.push({ mesh, box, vol, worldToVol, fade: 1, target: 1, opaqueMat: terrainMat, fadeMat: null, depthMesh: null });
     treeColliders.push({ x: t.x, z: t.z, r: vol.collider });
     triangles += (geo.index?.count ?? 0) / 3;
   }
@@ -293,10 +307,25 @@ export async function buildSceneMeshes(build: SceneBuild, opts: { seed: number; 
 /** Ustawia przezroczystość drzewa (zanikanie, gdy zasłania bohatera). */
 export function applyTreeFade(t: TreeObject): void {
   if (t.fade >= 0.999) {
-    if (t.mesh.material !== t.opaqueMat) t.mesh.material = t.opaqueMat;
+    if (t.mesh.material !== t.opaqueMat) {
+      t.mesh.material = t.opaqueMat;
+      t.mesh.renderOrder = 0;
+    }
+    if (t.depthMesh) t.depthMesh.visible = false;
     return;
   }
   if (!t.fadeMat) t.fadeMat = createVoxelMaterial({ transparent: true, opacity: t.fade });
+  if (!t.depthMesh) {
+    t.depthMesh = new THREE.Mesh(t.mesh.geometry, depthOnlyMat);
+    t.depthMesh.castShadow = false;
+    t.depthMesh.receiveShadow = false;
+    t.depthMesh.renderOrder = 6;
+    t.mesh.add(t.depthMesh);
+  }
+  t.depthMesh.visible = true;
   t.fadeMat.opacity = t.fade;
-  if (t.mesh.material !== t.fadeMat) t.mesh.material = t.fadeMat;
+  if (t.mesh.material !== t.fadeMat) {
+    t.mesh.material = t.fadeMat;
+    t.mesh.renderOrder = 7;
+  }
 }

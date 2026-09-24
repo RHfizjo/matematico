@@ -1,0 +1,91 @@
+/* Podpowiedź: oś liczbowa, kostki, kroki, podsumowanie. */
+
+.hint-modal { background: rgba(20, 28, 50, 0.38); }
+.hint-panel {
+  width: min(1000px, calc(100vw - 2 * var(--gutter))); max-height: calc(100vh - 2 * var(--gutter));
+  padding: 24px 40px 26px; display: flex; flex-direction: column; gap: 16px;
+  border-width: 5px; border-radius: 36px; background: linear-gradient(#fffef9, #fff4da);
+  box-shadow: 0 8px 0 var(--ink), 0 24px 60px rgba(20, 28, 50, 0.35);
+}
+.hint-head { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.hint-kicker { font: 800 21px/1.2 var(--font); color: var(--ink-soft); }
+.hint-title { display: flex; align-items: center; justify-content: center; gap: 14px; font: 900 44px/1.1 var(--font); text-align: center; }
+.hint-bulb { width: 56px; height: 56px; animation: wiggle 1.6s ease-in-out infinite; }
+
+.hint-viz {
+  display: flex; justify-content: center; align-items: center; padding: 6px 10px;
+  background: #edf8ff; border: 3px solid #c4e3f9; border-radius: 24px;
+}
+.hint-viz .nl { width: 100%; max-width: 900px; height: auto; display: block; }
+.hint-colmain { display: flex; flex-direction: column; gap: 16px; }
+.hint-row { display: flex; gap: 28px; align-items: center; }
+.hint-row .hint-viz { flex: none; padding: 20px; }
+.hint-col { flex: 1; display: flex; flex-direction: column; gap: 16px; align-items: stretch; }
+
+.hint-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 16px; }
+.hint-blocks .hint-steps, .hint-text .hint-steps { flex-direction: column; align-items: stretch; }
+.hint-step {
+  display: flex; align-items: center; gap: 12px; padding: 8px 20px 8px 8px;
+  background: #fff; border: 3px solid var(--ink); border-radius: 18px; box-shadow: var(--shadow-sm);
+  font: 900 32px/1.15 var(--font); transition: opacity 260ms ease, transform 320ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.hint-step.is-hidden { opacity: 0; transform: translateY(12px) scale(0.9); }
+.hint-step-n {
+  flex: none; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--primary); color: #fff; border: 3px solid var(--ink); font: 900 20px/1 var(--font);
+}
+.hint-summary {
+  display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px 20px; text-align: center;
+  background: linear-gradient(#fff6c2, #ffe98a); border: 3px solid var(--ink); border-radius: 20px;
+  font: 900 36px/1.15 var(--font); transition: opacity 300ms ease, transform 360ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.hint-summary.is-hidden { opacity: 0; transform: scale(0.9); }
+.hint-sum-ic { width: 40px; height: 40px; }
+
+.hint-foot { display: flex; justify-content: flex-end; }
+.ui-root .hint-next { position: relative; overflow: hidden; min-width: 250px; }
+.hint-next-fill {
+  position: absolute; inset: 0; background: rgba(255, 255, 255, 0.3); transform-origin: left center; transform: scaleX(0);
+  animation: hint-fill linear forwards;
+}
+.hint-next > :not(.hint-next-fill) { position: relative; }
+@keyframes hint-fill { to { transform: scaleX(1); } }
+
+/* Oś liczbowa (SVG) — używana też w panelu odpowiedzi */
+.nl { font-family: var(--font); overflow: visible; }
+.nl-axis { stroke: var(--ink); stroke-width: 6; stroke-linecap: round; }
+.nl-arrowhead { fill: none; stroke: var(--ink); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.nl-tick { stroke: var(--ink); stroke-width: 3; stroke-linecap: round; }
+.nl-tick-10 { stroke-width: 5; }
+.nl-label { fill: var(--ink-soft); font-weight: 800; text-anchor: middle; }
+.nl-label-10 { fill: var(--ink); font-weight: 900; }
+.nl-arc { fill: none; stroke-width: 7; stroke-linecap: round; stroke-dasharray: 1 1; }
+.nl-compact .nl-arc { stroke-width: 6; }
+.nl-arc-plus { stroke: #2fb35a; }
+.nl-arc-minus { stroke: #ff7a45; }
+.nl-jumptag { transition: opacity 220ms ease; }
+.nl-jumptag rect { fill: #2fb35a; stroke: var(--ink); stroke-width: 3; }
+.nl-jumptag.minus rect { fill: #ff7a45; }
+.nl-jumptag text { fill: #fff; font-weight: 900; text-anchor: middle; dominant-baseline: central; }
+.nl-pill { transition: opacity 220ms ease; }
+.nl-pill-bg { fill: #fff; stroke: var(--ink); stroke-width: 3; }
+.nl-pill-t { fill: var(--ink); font-weight: 900; text-anchor: middle; dominant-baseline: central; }
+.nl-dot { fill: #fff; stroke: var(--ink); stroke-width: 3; }
+.nl-start .nl-pill-bg, .nl-start .nl-dot { fill: var(--primary); }
+.nl-start .nl-pill-t { fill: #fff; }
+.nl-end .nl-pill-bg, .nl-end .nl-dot { fill: #ffd23f; }
+.nl-hidden { opacity: 0; }
+.nl-hopper-body { fill: #ffd23f; stroke: var(--ink); stroke-width: 3.5; }
+.nl-hopper-eye { fill: var(--ink); }
+
+/* Kostki */
+.blocks-wrap { display: flex; justify-content: center; }
+.blocks { display: grid; }
+.cube {
+  width: var(--cube); height: var(--cube); border-radius: 22%;
+  background: linear-gradient(145deg, #9ad6ff, #3fa7ff 60%, #2a86d6);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2), inset 0 3px 0 rgba(255, 255, 255, 0.45), 0 0 0 2.5px var(--ink);
+  transition: transform 260ms cubic-bezier(0.2, 1.4, 0.4, 1), opacity 200ms ease;
+}
+.cube-hl { background: linear-gradient(145deg, #fff09a, #ffd23f 60%, #e5a800); }
+.cube-hidden { opacity: 0; transform: translateY(-16px) scale(0.5); }

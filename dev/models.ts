@@ -118,7 +118,7 @@ const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloat
 // licznik czasu klatki (diagnostyka zrzutów w SwiftShader)
 let frameMs = 0;
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new BloomEffect({ luminanceThreshold: 0.95, luminanceSmoothing: 0.25, intensity: 1.1, mipmapBlur: true, radius: 0.62 });
+const bloom = new BloomEffect({ luminanceThreshold: 1.0, luminanceSmoothing: 0.2, intensity: 1.0, mipmapBlur: true, radius: 0.6 });
 const params = new URLSearchParams(location.search);
 const TM: Record<string, ToneMappingMode> = { agx: ToneMappingMode.AGX, aces: ToneMappingMode.ACES_FILMIC, neutral: ToneMappingMode.NEUTRAL };
 const tmMode = TM[params.get('tm') ?? 'aces'] ?? ToneMappingMode.ACES_FILMIC;
@@ -264,7 +264,7 @@ function demo(state: string): string {
     showGallery(true);
     for (const it of items) void it.rig.play('idle');
     if (state === 'highlight') for (const it of items) it.rig.setHighlight(true);
-    lookFrom(new THREE.Vector3(0, 0.2, -0.6), 25.5, 42);
+    lookFrom(new THREE.Vector3(0, 0.3, -1.3), 26.5, 42);
     aimSun(new THREE.Vector3(0, 0, -1), 16);
     setHud('Galeria — wszystkie modele (idle)');
     return state;
@@ -274,7 +274,7 @@ function demo(state: string): string {
     const anim = rest as AnimName;
     showGallery(true);
     for (const it of items) void it.rig.play(anim);
-    lookFrom(new THREE.Vector3(0, 0.2, -0.6), 25.5, 42);
+    lookFrom(new THREE.Vector3(0, 0.3, -1.3), 26.5, 42);
     aimSun(new THREE.Vector3(0, 0, -1), 16);
     if (t !== null) {
       simulate(t);
@@ -284,15 +284,17 @@ function demo(state: string): string {
     return state;
   }
   showGallery(false);
-  if (state.startsWith('closeup:')) {
-    // closeup:<id>[@<anim>[:t]]
-    const body = state.slice(8);
+  if (state.startsWith('closeup:') || state.startsWith('hl:')) {
+    // closeup:<id>[@<anim>[:t]]   |   hl:<id> (zbliżenie z podświetleniem)
+    const hl = state.startsWith('hl:');
+    const body = state.slice(hl ? 3 : 8);
     const [idPart, animPart] = body.split('@') as [string, string | undefined];
     const id = idPart as ModelId;
     const it = addToStage(id, 0, 0, false);
+    if (hl) it.rig.setHighlight(true);
     const h = it.rig.height;
     const big = h > 2.5;
-    lookFrom(stageFocus(h * 0.48), Math.max(2.4, h * 1.75 + it.rig.radius * 1.2), big ? 22 : 18, 28);
+    lookFrom(stageFocus(h * 0.48), Math.max(2.4, h * 1.75 + it.rig.radius * 1.9), big ? 22 : 18, 28);
     aimSun(stageFocus(0), Math.max(4, h * 1.4));
     let label = `${NAMES[id] ?? id}`;
     if (animPart) {
@@ -376,7 +378,7 @@ function demo(state: string): string {
   if (state.startsWith('particles')) {
     const [, t] = parseT(state);
     const kinds: BurstKind[] = ['sparkle', 'hit', 'crit', 'block', 'heal', 'catch', 'digits', 'poof'];
-    const spots = kinds.map((k, i) => ({ k, pos: new THREE.Vector3(stage.position.x + (i - 3.5) * 2.1, 1.2, 0) }));
+    const spots = kinds.map((k, i) => ({ k, pos: new THREE.Vector3(stage.position.x + (i - 3.5) * 1.6, 1.2, 0) }));
     for (const s of spots) {
       const lab = document.createElement('div');
       lab.className = 'lbl';
@@ -396,7 +398,7 @@ function demo(state: string): string {
         fire();
       }
     };
-    lookFrom(stageFocus(1.3), 13, 12);
+    lookFrom(stageFocus(1.4), 13.5, 14);
     aimSun(stageFocus(0), 10);
     if (t !== null) {
       simulate(t);
@@ -460,7 +462,9 @@ function frame(now: number): void {
   const t0 = performance.now();
   composer.render(dt);
   frameMs = performance.now() - t0;
-  (window as unknown as { __frameMs: number }).__frameMs = frameMs;
+  const wnd = window as unknown as { __frameMs: number; __frames: number };
+  wnd.__frameMs = frameMs;
+  wnd.__frames = (wnd.__frames ?? 0) + 1;
   placeLabels();
   requestAnimationFrame(frame);
 }

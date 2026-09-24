@@ -135,8 +135,8 @@ function pine(rng: SceneRng): TreeVolume {
 function bush(rng: SceneRng): TreeVolume {
   const S = 5;
   const v = new Vol(S, 4, S);
-  v.blob(2.5, 0.9, 2.5, 1.9, 1.5, 1.7, [B.leaves, B.leavesLight], rng, 0.35);
-  return { sx: S, sy: 4, sz: S, dense: v.dense, cx: 2, cz: 2, collider: 1.0, height: 3, crown: 1.9, px: 2.5, pz: 2.5 };
+  v.blob(2.5, 0.7, 2.5, 1.55, 1.25, 1.45, [B.leaves, B.leavesLight, B.leaves], rng, 0.4);
+  return { sx: S, sy: 4, sz: S, dense: v.dense, cx: 2, cz: 2, collider: 0.9, height: 2, crown: 1.5, px: 2.5, pz: 2.5 };
 }
 
 function fruit(rng: SceneRng): TreeVolume {

@@ -150,7 +150,7 @@ export const BLOCK_DEFS: readonly BlockDef[] = [
   },
   all('stoneBrick', B.stoneBrick, '#aeb1bb', '#9fa2ad', MAT.brick),
   all('cobble', B.cobble, '#8e929b', '#7f848e', MAT.stone),
-  all('caveFloor', B.caveFloor, '#75604f', '#685444', MAT.path),
+  all('caveFloor', B.caveFloor, '#7b6653', '#6f5b4a', MAT.path),
   all('embers', B.embers, '#ff9442', '#ffb94d', MAT.glow, { emissive: 2.2 }),
   all('cloud', B.cloud, '#ffffff', '#f2f6ff', MAT.cloud),
   {

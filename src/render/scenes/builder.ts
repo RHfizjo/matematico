@@ -94,15 +94,44 @@ export class SceneBuilder {
     const { cx, cz, radius } = opts;
     let minBottom = Infinity;
     const R = Math.ceil(radius * 1.25);
-    for (let z = Math.floor(cz - R); z <= Math.ceil(cz + R); z++)
-      for (let x = Math.floor(cx - R); x <= Math.ceil(cx + R); x++) {
+    // 1) Mapa wysokości i odległości od brzegu.
+    const x0 = Math.floor(cx - R);
+    const z0 = Math.floor(cz - R);
+    const W = Math.ceil(cx + R) - x0 + 1;
+    const D = Math.ceil(cz + R) - z0 + 1;
+    const hm = new Float32Array(W * D).fill(NaN);
+    const dm = new Float32Array(W * D);
+    for (let z = z0; z < z0 + D; z++)
+      for (let x = x0; x < x0 + W; x++) {
         const dx = x + 0.5 - cx;
         const dz = z + 0.5 - cz;
         const ang = Math.atan2(dz, dx);
         const wob = (fbm2(Math.cos(ang) * 2.2 + 11, Math.sin(ang) * 2.2 + 7, this.seed + 5, 3) - 0.5) * 0.36;
         const d = Math.hypot(dx, dz) / radius - wob;
         if (d >= 1) continue;
-        const s = opts.surface(x, z, d);
+        const i = (z - z0) * W + (x - x0);
+        hm[i] = opts.surface(x, z, d);
+        dm[i] = d;
+      }
+    // 2) Zasypanie pojedynczych dołków (kostka niższa od wszystkich sąsiadów wygląda jak dziura).
+    for (let pass = 0; pass < 2; pass++)
+      for (let z = 1; z < D - 1; z++)
+        for (let x = 1; x < W - 1; x++) {
+          const i = z * W + x;
+          const h = hm[i] ?? NaN;
+          if (Number.isNaN(h)) continue;
+          const n = [hm[i - 1], hm[i + 1], hm[i - W], hm[i + W]].filter((v): v is number => v !== undefined && !Number.isNaN(v));
+          if (n.length < 3) continue;
+          const lowNeighbours = n.filter((v) => v <= h).length;
+          if (lowNeighbours <= 1) hm[i] = Math.min(...n.filter((v) => v > h));
+        }
+    // 3) Kolumny.
+    for (let z = z0; z < z0 + D; z++)
+      for (let x = x0; x < x0 + W; x++) {
+        const i = (z - z0) * W + (x - x0);
+        const s = hm[i] ?? NaN;
+        if (Number.isNaN(s)) continue;
+        const d = dm[i] ?? 0;
         const depth = 2 + Math.pow(1 - d, 0.6) * radius * 0.42 * (0.7 + 0.6 * fbm2(x * 0.12, z * 0.12, this.seed + 9, 3));
         const bottom = Math.round(s - depth);
         minBottom = Math.min(minBottom, bottom);

@@ -32,8 +32,8 @@ export function buildDungeonRoom(seed: number, kind: RoomKind, index: number): S
       const n = fbm2(x * 0.11, z * 0.11, s + 3, 3);
       const r = hash2(x, z, s);
       let top: number = B.caveFloor;
-      if (n > 0.64 || (boss && n > 0.52)) top = B.caveMoss;
-      else if (n > 0.6 && r < 0.5) top = B.caveMoss;
+      if (n > 0.58 || (boss && n > 0.5)) top = B.caveMoss;
+      else if (n > 0.54 && r < 0.5) top = B.caveMoss;
       else if (n < 0.27) top = B.cobble;
       else if (n < 0.31 && r < 0.5) top = B.cobble;
       b.world.set(x, F, z, top);
@@ -59,8 +59,8 @@ export function buildDungeonRoom(seed: number, kind: RoomKind, index: number): S
     for (const side of [-1, 1]) {
       for (let k = 0; k < 4; k++) {
         const x = side < 0 ? x0 - 1 - k : x1 + 1 + k;
-        const base = Math.round(wallH * (1 - t * 0.85)) + (k > 0 ? 1 : 0);
-        const h = Math.max(1, base + Math.round((hash2(x, z, s + 17) - 0.5) * 2));
+        const base = Math.round(wallH * (1 - t * 0.8)) + (k > 1 ? 1 : 0);
+        const h = Math.max(1, base + (hash2(x, z, s + 17) < 0.15 ? 1 : 0));
         wallCol(x, z, h);
       }
     }
@@ -136,10 +136,30 @@ export function buildDungeonRoom(seed: number, kind: RoomKind, index: number): S
   let spawn = { x: 0.5, z: z1 - 0.5 };
   if (kind === 'fight' || kind === 'boss') {
     spawn = { ...heroSpot };
-    // Arena: krąg ubitej ziemi.
-    b.disc(C.x, C.z, boss ? 6.5 : 5, (x, z, d) => {
-      if (d < (boss ? 5.2 : 4) || hash2(x, z, s + 41) < 0.5) b.setTop(x, z, B.caveFloor);
+    // Arena: krąg ubitej ziemi otoczony (przerywanym) pierścieniem kamieni.
+    const ar = boss ? 6.5 : 5.2;
+    b.disc(C.x, C.z, ar + 1.2, (x, z, d) => {
+      if (d < ar - 0.6) b.setTop(x, z, B.caveFloor);
+      else if (d < ar + 0.5 && hash2(x, z, s + 41) < 0.7) b.setTop(x, z, hash2(z, x, s) < 0.6 ? B.cobble : B.mossyStone);
     });
+  }
+  // Kamyczki i korzenie na podłodze (żeby duża płaszczyzna nie była pusta).
+  for (let i = 0; i < (boss ? 40 : 28); i++) {
+    const x = b.rng.range(x0 + 0.5, x1 + 0.5);
+    const z = b.rng.range(z0 + 0.5, z1 + 0.5);
+    if (b.isReserved(x, z)) continue;
+    b.foliageAt('pebble', x, z, b.rng.pick(['#9a9aa6', '#8c8578', '#a7a19a']), b.rng.range(0.8, 1.5));
+  }
+  for (let r = 0; r < 2; r++) {
+    // Korzeń przecinający podłogę (płasko w podłodze).
+    const zc = b.rng.range(z0 + 2, z1 - 1);
+    const fromLeft = r === 0;
+    const len = b.rng.int(3, 6);
+    for (let k = 0; k < len; k++) {
+      const x = fromLeft ? x0 + k : x1 - k;
+      const z = Math.floor(zc + Math.sin(k * 0.9) * 1.2);
+      if (!b.isReserved(x, z)) b.setTop(x, z, B.root);
+    }
   }
 
   if (kind === 'chest') {

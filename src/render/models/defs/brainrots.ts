@@ -4,7 +4,7 @@
  *  - brainglam: pastel + złoto, emisyjne akcenty, drobinki brokatu, rzęsy, spokojny, elegancki taniec.
  */
 import { TAU, blink, bump, envelope, ramp } from '../anim';
-import type { ModelBuilder } from '../builder';
+import type { BoxOpts, ModelBuilder, V3 } from '../builder';
 import { bodyMotion } from '../motion';
 import type { MotionFn } from '../rig';
 import type { ModelDef } from './common';
@@ -17,8 +17,13 @@ const GOLD = '#ffd35a';
 
 function buildSlimak(b: ModelBuilder, v: Variant): void {
   const glam = v === 'glam';
+  // Trampek projektowany „palcami do tyłu”, odbity w Z: palce z przodu (czytelne z kamery), cholewka z tyłu.
+  const MZ = (c: V3): V3 => [c[0], c[1], -c[2] - 0.38];
+  const sh = (pivot: string, size: V3, c: V3, color: string, o: BoxOpts = {}): void => {
+    b.box(pivot, size, MZ(c), color, o.rot ? { ...o, rot: [-o.rot[0], -o.rot[1], o.rot[2]] } : o);
+  };
   const P = glam
-    ? { body: '#d9c8ff', bodyDark: '#b9a3f2', shoe: '#ffb8dc', shoeDark: '#ff96c8', sole: '#fffaf4', accent: GOLD, tongue: '#fff0f8', inner: '#b0487e' }
+    ? { body: '#c9b3ff', bodyDark: '#a98ff0', shoe: '#ff9fd2', shoeDark: '#ff7fc0', sole: '#fff1f8', accent: GOLD, tongue: '#ffe0f0', inner: '#b0487e' }
     : { body: '#b5e61d', bodyDark: '#86b80f', shoe: '#ff3d7f', shoeDark: '#d61f5f', sole: '#f4f4ee', accent: '#ffe14d', tongue: '#9b5de5', inner: '#4a0f2a' };
 
   b.pivot('body', 'all', [0, 0, 0]);
@@ -27,7 +32,7 @@ function buildSlimak(b: ModelBuilder, v: Variant): void {
   b.pivot('stalkR', 'head', [-0.14, 0.66, 0.7]);
   b.pivot('eyeL', 'stalkL', [0.15, 1.0, 0.72]);
   b.pivot('eyeR', 'stalkR', [-0.14, 0.99, 0.72]);
-  b.pivot('shell', 'body', [0, 0.22, -0.1]);
+  b.pivot('shell', 'body', MZ([0, 0.22, -0.1]));
 
   // ślimacze ciało
   b.box('body', [0.5, 0.22, 1.42], [0, 0.11, 0.08], P.body, { shade: 0.72 });
@@ -64,61 +69,61 @@ function buildSlimak(b: ModelBuilder, v: Variant): void {
   }
 
   // muszla-trampek (palce w tył, kostka przy głowie)
-  b.box('shell', [0.62, 0.12, 1.16], [0, 0.28, -0.12], P.sole, { shade: 0.85 });
-  b.box('shell', [0.63, 0.045, 1.17], [0, 0.335, -0.12], P.accent, { shade: 1, glow: glam ? 1.2 : undefined });
-  b.box('shell', [0.56, 0.34, 0.98], [0, 0.52, -0.15], P.shoe, { shade: 0.8 });
-  b.box('shell', [0.58, 0.2, 0.2], [0, 0.44, -0.63], P.sole, { shade: 0.85 });
-  b.box('shell', [0.58, 0.5, 0.34], [0, 0.78, 0.2], P.shoe, { shade: 0.85 });
-  b.box('shell', [0.6, 0.08, 0.36], [0, 1.05, 0.2], glam ? GOLD : P.shoeDark, { shade: 1, glow: glam ? 1.3 : undefined });
-  b.box('shell', [0.4, 0.02, 0.2], [0, 1.1, 0.2], P.inner, { shade: 1 });
-  b.box('shell', [0.32, 0.3, 0.08], [0, 0.98, -0.02], P.tongue, { rot: [-0.35, 0, 0] });
-  b.box('shell', [0.38, 0.06, 0.5], [0, 0.7, -0.27], P.shoeDark);
-  b.box('shell', [0.24, 0.22, 0.04], [0, 0.94, 0.385], P.accent, { shade: 1, glow: glam ? 1.4 : undefined });
+  sh('shell', [0.62, 0.12, 1.16], [0, 0.28, -0.12], P.sole, { shade: 0.85 });
+  sh('shell', [0.63, 0.045, 1.17], [0, 0.335, -0.12], P.accent, { shade: 1, glow: glam ? 1.2 : undefined });
+  sh('shell', [0.56, 0.34, 0.98], [0, 0.52, -0.15], P.shoe, { shade: 0.8 });
+  sh('shell', [0.58, 0.2, 0.2], [0, 0.44, -0.63], P.sole, { shade: 0.85 });
+  sh('shell', [0.58, 0.5, 0.34], [0, 0.78, 0.2], P.shoe, { shade: 0.85 });
+  sh('shell', [0.6, 0.08, 0.36], [0, 1.05, 0.2], glam ? GOLD : P.shoeDark, { shade: 1, glow: glam ? 1.3 : undefined });
+  sh('shell', [0.4, 0.02, 0.2], [0, 1.1, 0.2], P.inner, { shade: 1 });
+  sh('shell', [0.32, 0.3, 0.08], [0, 0.98, -0.02], P.tongue, { rot: [-0.35, 0, 0] });
+  sh('shell', [0.38, 0.06, 0.5], [0, 0.7, -0.27], P.shoeDark);
+  sh('shell', [0.24, 0.22, 0.04], [0, 0.94, 0.385], P.accent, { shade: 1, glow: glam ? 1.4 : undefined });
 
   if (glam) {
     // wielka kokarda zamiast sznurówek
-    b.pivot('bow', 'shell', [0, 0.8, -0.24]);
+    b.pivot('bow', 'shell', MZ([0, 0.8, -0.24]));
     const BOW = '#ff6fb5';
-    b.box('bow', [0.15, 0.15, 0.15], [0, 0.82, -0.24], '#ff4fa3');
-    b.box('bow', [0.3, 0.24, 0.1], [0.2, 0.88, -0.24], BOW, { rot: [0, 0, 0.35] });
-    b.box('bow', [0.3, 0.24, 0.1], [-0.2, 0.88, -0.24], BOW, { rot: [0, 0, -0.35] });
-    b.box('bow', [0.08, 0.26, 0.06], [0.1, 0.7, -0.18], BOW, { rot: [0.3, 0, -0.3] });
-    b.box('bow', [0.08, 0.26, 0.06], [-0.1, 0.7, -0.18], BOW, { rot: [0.3, 0, 0.3] });
+    sh('bow', [0.15, 0.15, 0.15], [0, 0.82, -0.24], '#ff4fa3');
+    sh('bow', [0.3, 0.24, 0.1], [0.2, 0.88, -0.24], BOW, { rot: [0, 0, 0.35] });
+    sh('bow', [0.3, 0.24, 0.1], [-0.2, 0.88, -0.24], BOW, { rot: [0, 0, -0.35] });
+    sh('bow', [0.08, 0.26, 0.06], [0.1, 0.7, -0.18], BOW, { rot: [0.3, 0, -0.3] });
+    sh('bow', [0.08, 0.26, 0.06], [-0.1, 0.7, -0.18], BOW, { rot: [0.3, 0, 0.3] });
     // brokat na bokach buta
     const dots: [number, number][] = [[0.6, -0.05], [0.5, -0.3], [0.62, -0.48], [0.45, 0.1], [0.4, -0.55], [0.85, 0.25], [0.7, 0.15]];
     dots.forEach(([y, z], i) => {
       const c = i % 2 ? WHITE : GOLD;
-      b.box('shell', [0.02, 0.045, 0.045], [0.285, y, z], c, { glow: 2.2, rot: [0.785, 0, 0] });
-      b.box('shell', [0.02, 0.045, 0.045], [-0.285, y + 0.03, z - 0.05], c, { glow: 2.2, rot: [0.785, 0, 0] });
+      sh('shell', [0.02, 0.045, 0.045], [0.285, y, z], c, { glow: 2.2, rot: [0.785, 0, 0] });
+      sh('shell', [0.02, 0.045, 0.045], [-0.285, y + 0.03, z - 0.05], c, { glow: 2.2, rot: [0.785, 0, 0] });
     });
     // serduszko na boku
     for (const s of [1, -1]) {
-      b.box('shell', [0.02, 0.08, 0.08], [s * 0.29, 0.56, -0.2], '#ff4fa3', { shade: 1 });
-      b.box('shell', [0.02, 0.08, 0.08], [s * 0.29, 0.56, -0.29], '#ff4fa3', { shade: 1 });
-      b.box('shell', [0.02, 0.09, 0.09], [s * 0.29, 0.5, -0.245], '#ff4fa3', { rot: [0.785, 0, 0], shade: 1 });
+      sh('shell', [0.02, 0.08, 0.08], [s * 0.29, 0.56, -0.2], '#ff4fa3', { shade: 1 });
+      sh('shell', [0.02, 0.08, 0.08], [s * 0.29, 0.56, -0.29], '#ff4fa3', { shade: 1 });
+      sh('shell', [0.02, 0.09, 0.09], [s * 0.29, 0.5, -0.245], '#ff4fa3', { rot: [0.785, 0, 0], shade: 1 });
     }
     b.pivot('sparkles', 'all', [0, 0, 0]);
     sparkles(b, { count: 9, radius: 0.85, y0: 0.4, y1: 1.3, seed: 11 });
   } else {
     // sznurówki na krzyż
     for (const [i, z] of [-0.1, -0.26, -0.42].entries()) {
-      b.box('shell', [0.42, 0.045, 0.06], [0, 0.745, z], WHITE, { rot: [0, i % 2 ? 0.35 : -0.35, 0], shade: 1 });
+      sh('shell', [0.42, 0.045, 0.06], [0, 0.745, z], WHITE, { rot: [0, i % 2 ? 0.35 : -0.35, 0], shade: 1 });
     }
     // zygzak na boku
     for (const s of [1, -1]) {
-      b.box('shell', [0.02, 0.07, 0.24], [s * 0.285, 0.56, -0.05], P.accent, { rot: [0.55, 0, 0], shade: 1 });
-      b.box('shell', [0.02, 0.07, 0.24], [s * 0.285, 0.5, -0.26], P.accent, { rot: [-0.55, 0, 0], shade: 1 });
-      b.box('shell', [0.02, 0.07, 0.2], [s * 0.285, 0.56, -0.46], P.accent, { rot: [0.55, 0, 0], shade: 1 });
+      sh('shell', [0.02, 0.07, 0.24], [s * 0.285, 0.56, -0.05], P.accent, { rot: [0.55, 0, 0], shade: 1 });
+      sh('shell', [0.02, 0.07, 0.24], [s * 0.285, 0.5, -0.26], P.accent, { rot: [-0.55, 0, 0], shade: 1 });
+      sh('shell', [0.02, 0.07, 0.2], [s * 0.285, 0.56, -0.46], P.accent, { rot: [0.55, 0, 0], shade: 1 });
     }
     // końce sznurówek (fruwają)
-    b.pivot('laceL', 'shell', [0.06, 0.77, -0.08]);
-    b.pivot('laceR', 'shell', [-0.06, 0.77, -0.08]);
-    b.box('laceL', [0.16, 0.09, 0.04], [0.12, 0.79, -0.08], WHITE, { rot: [0, 0, 0.4] });
-    b.box('laceR', [0.16, 0.09, 0.04], [-0.12, 0.79, -0.08], WHITE, { rot: [0, 0, -0.4] });
-    b.box('laceL', [0.04, 0.04, 0.36], [0.21, 0.78, 0.03], WHITE, { rot: [0, 0.9, -0.15] });
-    b.box('laceR', [0.04, 0.04, 0.36], [-0.21, 0.78, 0.03], WHITE, { rot: [0, -0.9, 0.15] });
-    b.box('laceL', [0.07, 0.07, 0.09], [0.35, 0.78, 0.14], P.accent, { rot: [0, 0.9, 0] });
-    b.box('laceR', [0.07, 0.07, 0.09], [-0.35, 0.78, 0.14], P.accent, { rot: [0, -0.9, 0] });
+    b.pivot('laceL', 'shell', MZ([0.06, 0.77, -0.08]));
+    b.pivot('laceR', 'shell', MZ([-0.06, 0.77, -0.08]));
+    sh('laceL', [0.16, 0.09, 0.04], [0.12, 0.79, -0.08], WHITE, { rot: [0, 0, 0.4] });
+    sh('laceR', [0.16, 0.09, 0.04], [-0.12, 0.79, -0.08], WHITE, { rot: [0, 0, -0.4] });
+    sh('laceL', [0.04, 0.04, 0.36], [0.21, 0.78, 0.03], WHITE, { rot: [0, 0.9, -0.15] });
+    sh('laceR', [0.04, 0.04, 0.36], [-0.21, 0.78, 0.03], WHITE, { rot: [0, -0.9, 0.15] });
+    sh('laceL', [0.07, 0.07, 0.09], [0.35, 0.78, 0.14], P.accent, { rot: [0, 0.9, 0] });
+    sh('laceR', [0.07, 0.07, 0.09], [-0.35, 0.78, 0.14], P.accent, { rot: [0, -0.9, 0] });
   }
 }
 
@@ -172,7 +177,7 @@ function slimakMotion(v: Variant): MotionFn[] {
 function buildTrzmiel(b: ModelBuilder, v: Variant): void {
   const glam = v === 'glam';
   const P = glam
-    ? { crust: '#e8a92a', bread: '#ffe7a3', stripe: '#ffb3d6', legs: '#8a5a2b', mouth: '#a0306a' }
+    ? { crust: '#f0ac2e', bread: '#ffd98a', stripe: '#ff9ecf', legs: '#b07a3a', mouth: '#a0306a' }
     : { crust: '#b8651f', bread: '#f6c46a', stripe: '#4a2a12', legs: '#2a1d14', mouth: '#5a1a10' };
 
   b.pivot('body', 'all', [0, 0.75, 0]);
@@ -249,12 +254,12 @@ function buildTrzmiel(b: ModelBuilder, v: Variant): void {
     };
     if (glam) {
       // złota rama + kolorowe szybki
-      b.box(wing, [0.62, 0.44, 0.04], at(s * 0.34, 0.15), GOLD, { rot: [0, 0, rz], glow: 1.1 });
-      const panes = ['#ff9fd8', '#8fe7ff', '#c8a8ff', '#a8ffcf', '#fff0a0', '#ffb3c8'];
+      b.box(wing, [0.62, 0.44, 0.04], at(s * 0.34, 0.15), GOLD, { rot: [0, 0, rz], glow: 0.9 });
+      const panes = ['#ff6fc0', '#4fd2ff', '#a97cff', '#56e8a0', '#ffd23f', '#ff8aa8'];
       let i = 0;
       for (const py of [0.05, 0.25]) {
         for (const px of [0.14, 0.34, 0.54]) {
-          b.box(wing, [0.17, 0.16, 0.05], at(s * px, py), panes[i++ % panes.length] ?? WHITE, { rot: [0, 0, rz], glow: 1.5 });
+          b.box(wing, [0.17, 0.16, 0.05], at(s * px, py), panes[i++ % panes.length] ?? WHITE, { rot: [0, 0, rz], glow: 1.1 });
         }
       }
     } else {
@@ -302,7 +307,7 @@ function trzmielMotion(v: Variant): MotionFn[] {
 function buildGrzyb(b: ModelBuilder, v: Variant): void {
   const glam = v === 'glam';
   const P = glam
-    ? { wood: '#ffe08a', woodDark: GOLD, foot: '#fff3c4', stem: '#ffe4ef', stemDark: '#ffc9df', flor: ['#fff7fb', '#f7e8ff', '#fde2ef'], leaf: '#b8f0d0', leafDark: '#8fdcb3' }
+    ? { wood: '#ffc93d', woodDark: '#f0ad1c', foot: '#fff0b0', stem: '#ffc8dc', stemDark: '#ffadc9', flor: ['#fff0f7', '#f1dbff', '#ffd6ea'], leaf: '#9fe8c4', leafDark: '#7fd8ad' }
     : { wood: '#c77d3a', woodDark: '#9c5a24', foot: '#6e3d17', stem: '#eef3b8', stemDark: '#cfd78c', flor: ['#f4f1dc', '#e6e2bf', '#dfe8b2'], leaf: '#7ac943', leafDark: '#5ea832' };
 
   // nogi od krzesła (chodzą po przekątnych)
@@ -314,8 +319,8 @@ function buildGrzyb(b: ModelBuilder, v: Variant): void {
   ];
   for (const [name, x, z] of legPos) {
     b.pivot(name, 'all', [x, 0.6, z]);
-    b.box(name, [0.1, 0.58, 0.1], [x, 0.31, z], P.woodDark, glam ? { glow: 0.35 } : {});
-    b.box(name, [0.12, 0.05, 0.12], [x, 0.025, z], P.foot, glam ? { glow: 1.6 } : {});
+    b.box(name, [0.1, 0.58, 0.1], [x, 0.31, z], P.woodDark, glam ? { glow: 0.25 } : {});
+    b.box(name, [0.12, 0.05, 0.12], [x, 0.025, z], P.foot, glam ? { glow: 1.3 } : {});
     b.box(name, [0.12, 0.06, 0.12], [x, 0.45, z], P.wood);
   }
   b.box('all', [0.82, 0.12, 0.82], [0, 0.66, 0], P.wood, { shade: 0.85 });
@@ -368,6 +373,11 @@ function buildGrzyb(b: ModelBuilder, v: Variant): void {
   for (const x of [-0.3, 0, 0.3]) for (const z of [-0.3, 0, 0.3]) floret(0.32, x, 1.42 + ((x * 7 + z * 13) % 0.05), z);
   for (const x of [-0.15, 0.15]) for (const z of [-0.15, 0.15]) floret(0.32, x, 1.64, z);
   floret(0.28, 0, 1.82, 0);
+  // „różyczki” kalafiora — drobne guzki na wierzchu
+  const curd = glam ? '#fff8fc' : '#faf6e0';
+  for (const x of [-0.33, 0.33]) for (const z of [-0.33, 0.33]) b.box('cap', [0.14, 0.1, 0.14], [x, 1.6, z], curd, { group: 'cap', rot: [0, 0.785, 0] });
+  for (const x of [-0.2, 0.2]) for (const z of [-0.2, 0.2]) b.box('cap', [0.12, 0.08, 0.12], [x, 1.81, z], curd, { group: 'cap', rot: [0, 0.785, 0] });
+  b.box('cap', [0.12, 0.08, 0.12], [0, 1.97, 0], curd, { group: 'cap', rot: [0, 0.785, 0] });
   floret(0.18, 0.48, 1.4, 0.05);
   floret(0.18, -0.48, 1.42, -0.05);
   floret(0.18, 0.02, 1.4, 0.48);
@@ -379,7 +389,8 @@ function buildGrzyb(b: ModelBuilder, v: Variant): void {
     sparkles(b, { count: 9, radius: 0.8, y0: 0.5, y1: 2.0, seed: 5 });
   }
   // liście kalafiora
-  b.box('cap', [0.36, 0.06, 0.4], [0, 1.3, 0.42], P.leaf, { rot: [0.55, 0, 0] });
+  b.box('cap', [0.3, 0.06, 0.36], [0.3, 1.3, 0.3], P.leaf, { rot: [0.5, 0.785, 0] });
+  b.box('cap', [0.3, 0.06, 0.36], [-0.3, 1.3, 0.3], P.leafDark, { rot: [0.5, -0.785, 0] });
   b.box('cap', [0.36, 0.06, 0.4], [0, 1.3, -0.42], P.leafDark, { rot: [-0.55, 0, 0] });
   b.box('cap', [0.4, 0.06, 0.36], [0.42, 1.3, 0], P.leaf, { rot: [0, 0, -0.55] });
   b.box('cap', [0.4, 0.06, 0.36], [-0.42, 1.3, 0], P.leafDark, { rot: [0, 0, 0.55] });
@@ -438,9 +449,9 @@ function buildKosiarka(b: ModelBuilder, v: Variant): void {
   const glam = v === 'glam';
   const P = glam
     ? {
-        deck: '#fff6ea', deckDark: '#ffe3ef', engine: '#ffd6e8', metal: GOLD, wheel: '#ffd35a', hub: '#ff9fcf',
-        stalk: '#8fdcaa', stalkDark: '#6fc890', leaf: '#b8f0c8', leafDark: '#95e0ad',
-        petal1: '#ffb3d1', petal2: '#ff8fc0', disc: '#ffe9a8',
+        deck: '#ffe3ef', deckDark: '#ffc6de', engine: '#ffb3d1', metal: GOLD, wheel: '#ffcc4d', hub: '#ff8fc0',
+        stalk: '#7fd6a0', stalkDark: '#5fc486', leaf: '#a6ecc0', leafDark: '#86dca6',
+        petal1: '#ff9cc8', petal2: '#ff72b1', disc: '#ffe07a',
       }
     : {
         deck: '#ff5a1f', deckDark: '#c93e0c', engine: '#3d3d46', metal: '#b9c2cc', wheel: '#1f1f24', hub: '#e3e3e3',
@@ -553,13 +564,13 @@ function buildKosiarka(b: ModelBuilder, v: Variant): void {
   b.pivot('head', 'stalk3', [0.04, 3.1, 0]);
   b.pivot('eyes', 'head', [0.04, 3.56, 0.22]);
   const hc: [number, number] = [0.04, 3.5];
-  for (let k = 0; k < 8; k++) {
-    const an = (k * Math.PI) / 4;
-    b.box('head', [0.36, 0.22, 0.14], [hc[0] + Math.cos(an) * 0.5, hc[1] + Math.sin(an) * 0.5, -0.03], k % 2 ? P.petal1 : P.petal2, { rot: [0, 0, an] });
+  for (let k = 0; k < 12; k++) {
+    const an = (k * Math.PI) / 6;
+    b.box('head', [0.36, 0.16, 0.12], [hc[0] + Math.cos(an) * 0.52, hc[1] + Math.sin(an) * 0.52, -0.04], k % 2 ? P.petal1 : P.petal2, { rot: [0, 0, an] });
   }
-  for (let k = 0; k < 8; k++) {
-    const an = (k * Math.PI) / 4 + Math.PI / 8;
-    b.box('head', [0.3, 0.2, 0.12], [hc[0] + Math.cos(an) * 0.42, hc[1] + Math.sin(an) * 0.42, 0.03], k % 2 ? P.petal2 : P.petal1, { rot: [0, 0, an] });
+  for (let k = 0; k < 12; k++) {
+    const an = (k * Math.PI) / 6 + Math.PI / 12;
+    b.box('head', [0.3, 0.15, 0.12], [hc[0] + Math.cos(an) * 0.42, hc[1] + Math.sin(an) * 0.42, 0.03], k % 2 ? P.petal2 : P.petal1, { rot: [0, 0, an] });
   }
   b.box('head', [0.62, 0.62, 0.26], [hc[0], hc[1], 0.08], P.disc, { shade: 0.85 });
   if (glam) {

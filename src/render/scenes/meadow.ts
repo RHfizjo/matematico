@@ -130,7 +130,7 @@ export function buildMeadow(seed: number): SceneBuild {
     for (let s = 0; s < len; s += 0.4) {
       const x = Math.floor(oak.x + 0.5 + Math.cos(a) * (2.2 + s));
       const z = Math.floor(oak.z + 0.5 + Math.sin(a) * (2.2 + s));
-      const h = Math.max(0, Math.round(2.4 - s * 0.6));
+      const h = Math.max(0, Math.round(1.7 - s * 0.45));
       const base = oy - 1;
       b.world.set(x, base, z, B.root);
       for (let y = 1; y <= h; y++) b.world.set(x, base + y, z, B.root);
@@ -141,9 +141,8 @@ export function buildMeadow(seed: number): SceneBuild {
     if (d < 3) return;
     const t = b.topId(x, z);
     if (t === B.grass && hash2(x, z, seed + 61) < 0.35) b.setTop(x, z, B.moss);
-    if (d > 4 && (t === B.grass || t === B.root) && hash2(z, x, seed + 62) < 0.06) {
-      const y = b.top(x, z);
-      b.world.set(x, y + 1, z, B.glowMushroom);
+    if (d > 4 && (t === B.grass || t === B.root || t === B.moss) && hash2(z, x, seed + 62) < 0.05) {
+      for (let k = 0; k < 3; k++) b.foliageAt('mushroom', x + 0.5 + b.rng.range(-0.4, 0.4), z + 0.5 + b.rng.range(-0.4, 0.4), b.rng.pick(['#7cf0ff', '#b99bff', '#ff9ee0']), b.rng.range(0.9, 1.4));
     }
   });
   const gate = { x: oak.x, z: oak.z + 1.95 };
@@ -194,10 +193,7 @@ export function buildMeadow(seed: number): SceneBuild {
   const clover = { x: -14, z: -24 };
   b.disc(clover.x, clover.z, 3.2, (x, z, d) => {
     b.setTop(x, z, d < 2.2 ? B.clover : B.moss, [B.grass, B.moss]);
-    if (d > 2.4 && hash2(x, z, seed + 7) < 0.5) {
-      const y = b.top(x, z);
-      b.world.set(x, y + 1, z, B.glowMushroom);
-    }
+    if (d > 2.4 && hash2(x, z, seed + 7) < 0.6) b.foliageAt('mushroom', x + 0.5, z + 0.5, hash2(z, x, seed) < 0.5 ? '#7cf0ff' : '#b8ffcf', 1.3);
   });
   for (let i = 0; i < 12; i++) b.foliageAt('flower', clover.x + b.rng.range(-1.8, 1.8), clover.z + b.rng.range(-1.8, 1.8), '#ffffff', 0.8);
   b.poi('spot-koniczynek', 'rareSpot', clover.x + 0.5, clover.z + 0.5, 2.6);
@@ -261,7 +257,7 @@ export function buildMeadow(seed: number): SceneBuild {
     placed++;
   }
 
-  b.scatterFoliage(-R, R, -R, R, 0.6, 0.5, [B.grass]);
+  b.scatterFoliage(-R, R, -R, R, 0.85, 0.55, [B.grass]);
   // Trzcina przy stawie.
   b.disc(pond.x, pond.z, pond.r + 2.5, (x, z) => {
     const pd = pondDist(x, z);

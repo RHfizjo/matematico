@@ -107,9 +107,9 @@ export class CameraRig {
         const p = ents.position(m.id);
         if (p) {
           const h = ents.height(m.id);
-          this.desiredTarget.set(p.x, p.y + h * 0.6, p.z);
-          this.desiredDistance = Math.max(4.5, h * 3.2);
-          this.desiredPitch = (24 * Math.PI) / 180;
+          this.desiredTarget.set(p.x, p.y + h * 0.55, p.z);
+          this.desiredDistance = Math.max(5, h * 3.4);
+          this.desiredPitch = (28 * Math.PI) / 180;
           this.desiredYaw = CAMERA_YAW;
         }
         k = 3.2;

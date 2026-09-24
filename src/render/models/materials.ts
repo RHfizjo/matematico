@@ -33,7 +33,7 @@ export function glamBaseMaterial(): THREE.MeshLambertMaterial {
         vertexColors: true,
         flatShading: true,
         emissive: new THREE.Color('#ffd9f0'),
-        emissiveIntensity: 0.14,
+        emissiveIntensity: 0.05,
       }),
   );
 }

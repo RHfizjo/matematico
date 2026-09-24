@@ -5,7 +5,8 @@
  */
 import type { PropKind } from '../../../game/contracts';
 import { TAU, bump, easeOutBack, easeOutCubic, ramp, squash } from '../anim';
-import type { ModelBuilder } from '../builder';
+import * as THREE from 'three';
+import type { ModelBuilder, V3 } from '../builder';
 import type { MotionFn, PoseWriter } from '../rig';
 import type { ModelDef } from './common';
 import { eyePair, pixelNumber, WHITE } from './common';
@@ -20,6 +21,27 @@ const GOLD = '#ffcf40';
 const MOSS = '#6cc04a';
 const GRASS = '#6cc04a';
 const DIRT = '#8b5e3c';
+
+const _up = new THREE.Vector3(0, 1, 0);
+const _dir = new THREE.Vector3();
+const _qq = new THREE.Quaternion();
+const _ee = new THREE.Euler();
+
+/** Łańcuch kostek wzdłuż łamanej (korzenie, pnącza); grubość maleje od t0 do t1. */
+function rootPath(b: ModelBuilder, pivot: string, pts: readonly V3[], t0: number, t1: number, color: string): void {
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const c = pts[i + 1];
+    if (!a || !c) continue;
+    _dir.set(c[0] - a[0], c[1] - a[1], c[2] - a[2]);
+    const len = _dir.length();
+    _dir.normalize();
+    _qq.setFromUnitVectors(_up, _dir);
+    _ee.setFromQuaternion(_qq);
+    const t = t0 + (t1 - t0) * (i / Math.max(1, pts.length - 2));
+    b.box(pivot, [t, len + t * 0.6, t], [(a[0] + c[0]) / 2, (a[1] + c[1]) / 2, (a[2] + c[2]) / 2], color, { rot: [_ee.x, _ee.y, _ee.z] });
+  }
+}
 
 /** Wspólna reakcja rekwizytu na cios: krótkie „drgnięcie”. */
 const propHit: MotionFn = (c, w) => {
@@ -112,26 +134,41 @@ const gate: ModelDef = {
     b.box('all', [0.7, 0.1, 0.5], [-1.1, 3.83, 0.1], MOSS);
     b.box('all', [0.4, 0.08, 0.4], [1.3, 3.83, -0.1], MOSS);
     b.box('all', [0.3, 0.3, 0.06], [1.62, 0.6, 0.46], MOSS);
-    // korzenie dębu oplatające kamień
-    const R = '#6b4a2b';
-    const R2 = '#5a3d22';
-    const roots: [number, number, number, number, number, number, string][] = [
-      [1.75, 1.2, 0.47, 0.18, 1.6, 0.3, R],
-      [1.2, 2.2, 0.47, 0.16, 1.2, -0.5, R2],
-      [-1.7, 1.6, 0.47, 0.18, 1.8, -0.25, R],
-      [-1.15, 0.7, 0.47, 0.14, 1.0, 0.45, R2],
-      [-0.8, 3.4, 0.52, 0.18, 1.6, 1.35, R],
-      [0.9, 3.55, 0.52, 0.16, 1.4, -1.25, R2],
-      [1.95, 3.2, 0.2, 0.2, 1.4, 0.2, R],
-      [-1.95, 3.3, 0.1, 0.22, 1.2, -0.2, R2],
-      [1.95, 0.35, 0.3, 0.26, 0.7, 0.9, R],
-      [-1.95, 0.3, 0.3, 0.26, 0.6, -1.0, R2],
-    ];
-    for (const [x, y, z, t, len, rz, col] of roots) b.box('all', [t, len, t], [x, y, z], col, { rot: [0, 0, rz] });
+    // korzenie starego dębu oplatające kamień (łańcuchy kostek wzdłuż krzywych)
+    const R = '#7a5230';
+    const R2 = '#8f6a3f';
+    rootPath(b, 'all', [[2.05, 0, 0.52], [1.8, 0.8, 0.52], [1.58, 1.6, 0.53], [1.72, 2.4, 0.54], [1.55, 3.1, 0.56], [1.0, 3.62, 0.56], [0.45, 3.78, 0.52]], 0.3, 0.1, R);
+    rootPath(b, 'all', [[-2.05, 0, 0.48], [-1.75, 0.9, 0.52], [-1.25, 1.7, 0.53], [-1.52, 2.5, 0.54], [-1.3, 3.2, 0.56], [-0.72, 3.78, 0.52]], 0.3, 0.1, R2);
+    rootPath(b, 'all', [[-2.0, 3.86, -0.05], [-1.0, 3.96, 0.12], [0, 3.9, 0.22], [1.0, 3.96, 0.1], [2.0, 3.84, -0.1]], 0.26, 0.2, R);
+    rootPath(b, 'all', [[1.58, 1.6, 0.53], [1.2, 1.3, 0.55], [1.0, 1.0, 0.55]], 0.12, 0.06, R2);
+    rootPath(b, 'all', [[-1.25, 1.7, 0.53], [-1.05, 2.2, 0.55], [-1.1, 2.6, 0.55]], 0.12, 0.06, R);
+    rootPath(b, 'all', [[1.95, 0.2, -0.3], [2.25, 0.05, -0.5]], 0.22, 0.14, R2);
+    rootPath(b, 'all', [[-1.95, 0.2, -0.3], [-2.3, 0.05, -0.55]], 0.22, 0.14, R);
+    // liście dębu na szczycie
+    for (const [x, z, k] of [[-1.3, 0.1, 0.5], [-0.5, -0.2, 0.42], [0.9, 0.05, 0.55], [1.6, -0.25, 0.4]] as const) {
+      b.box('all', [k, k * 0.55, k], [x, 4.05, z], x < 0 ? '#5cb85c' : '#4fa84f', { rot: [0, x * 0.7, 0] });
+    }
     // gniazda run (świecą; mocniej przy otwarciu)
-    for (const x of [-1.2, -0.64, 0.64, 1.2]) {
-      b.box('all', [0.42, 0.42, 0.04], [x, 3.4, 0.51], '#4a5260', { shade: 1 });
-      b.box('all', [0.26, 0.26, 0.05], [x, 3.4, 0.525], '#5ce1ff', { group: 'runes', shade: 1 });
+    // gniazda run z symbolami działań: + − × =
+    const RUNE = '#2fc6ff';
+    const slots: [number, 'plus' | 'minus' | 'times' | 'eq'][] = [[-1.2, 'plus'], [-0.64, 'minus'], [0.64, 'times'], [1.2, 'eq']];
+    for (const [x, sym] of slots) {
+      b.box('all', [0.42, 0.42, 0.04], [x, 3.4, 0.51], '#3a4150', { shade: 1 });
+      const rb = (w: number, h: number, dy: number, rz = 0): void => {
+        b.box('all', [w, h, 0.05], [x, 3.4 + dy, 0.53], RUNE, { group: 'runes', shade: 1, rot: [0, 0, rz] });
+      };
+      if (sym === 'plus') {
+        rb(0.26, 0.06, 0);
+        rb(0.06, 0.26, 0);
+      } else if (sym === 'minus') {
+        rb(0.26, 0.06, 0);
+      } else if (sym === 'times') {
+        rb(0.28, 0.06, 0, 0.785);
+        rb(0.28, 0.06, 0, -0.785);
+      } else {
+        rb(0.26, 0.06, 0.06);
+        rb(0.26, 0.06, -0.06);
+      }
     }
     // ciemność za bramą
     b.box('all', [1.9, 2.95, 0.05], [0, 1.475, -0.3], '#2a1454', { glow: 0.5 });
@@ -140,10 +177,13 @@ const gate: ModelDef = {
       b.box(door, [0.94, 2.92, 0.14], [s * 0.48, 1.46, 0.05], '#6e4a2e', { shade: 0.8 });
       for (const y of [0.5, 1.5, 2.5]) b.box(door, [0.96, 0.08, 0.16], [s * 0.48, y, 0.05], '#4a4f5a', { shade: 1 });
       b.box(door, [0.08, 0.2, 0.08], [s * 0.12, 1.4, 0.15], GOLD);
-      // połowa okręgu run na wrotach
-      b.box(door, [0.08, 0.5, 0.03], [s * 0.3, 1.9, 0.135], '#5ce1ff', { group: 'runes', shade: 1 });
-      b.box(door, [0.3, 0.08, 0.03], [s * 0.16, 2.14, 0.135], '#5ce1ff', { group: 'runes', shade: 1 });
-      b.box(door, [0.3, 0.08, 0.03], [s * 0.16, 1.66, 0.135], '#5ce1ff', { group: 'runes', shade: 1 });
+      // pierścień run przecięty szparą między wrotami (każde skrzydło ma swoją połowę)
+      for (let k = 0; k < 10; k++) {
+        const an = (k / 10) * TAU + Math.PI / 10;
+        const x = Math.cos(an) * 0.42;
+        if (Math.sign(x) !== s) continue;
+        b.box(door, [0.1, 0.1, 0.03], [x, 1.85 + Math.sin(an) * 0.42, 0.135], '#2fc6ff', { group: 'runes', shade: 1, rot: [0, 0, an] });
+      }
     }
   },
   motions: () => [
@@ -152,9 +192,9 @@ const gate: ModelDef = {
       if (c.anim === 'open') open = easeOutCubic(ramp(c.p, 0.3, 1));
       w.rot('doorL', 0, -1.7 * open, 0);
       w.rot('doorR', 0, 1.7 * open, 0);
-      const pulse = 0.55 + 0.25 * Math.sin(c.time * 2.2);
-      const burst = c.anim === 'open' ? 1.6 * bump(c.p, 0, 0.5) + 0.6 * ramp(c.p, 0.3, 1) : 0;
-      fx.glowGroup('runes', '#5ce1ff', pulse + burst);
+      const pulse = 1.1 + 0.35 * Math.sin(c.time * 2.2);
+      const burst = c.anim === 'open' ? 2.2 * bump(c.p, 0, 0.5) + 0.8 * ramp(c.p, 0.3, 1) : 0;
+      fx.glowGroup('runes', '#2fc6ff', pulse + burst);
       if (c.anim === 'open') w.pos('all', 0.02 * Math.sin(c.p * 60) * bump(c.p, 0.25, 0.6), 0, 0);
     },
     propShowHide,
@@ -222,20 +262,21 @@ const campfire: ModelDef = {
     b.box('all', [0.14, 0.14, 0.8], [0, 0.12, 0], '#8a5a30', { rot: [0, -0.6, 0] });
     b.box('all', [0.13, 0.13, 0.7], [0, 0.2, 0], WOOD_DARK, { rot: [0, 1.57, 0] });
     b.box('all', [0.3, 0.05, 0.3], [0, 0.03, 0], '#ff6a2a', { glow: 1.6 });
-    const flames: [string, number[], number[], string, number][] = [
-      ['f0', [0.3, 0.38, 0.3], [0, 0.4, 0], '#ff8c1a', 2.2],
-      ['f1', [0.2, 0.28, 0.2], [0.13, 0.33, -0.08], '#ff5a1a', 2.0],
-      ['f2', [0.18, 0.3, 0.18], [0, 0.5, 0.03], '#ffd23f', 2.6],
-      ['f3', [0.12, 0.16, 0.12], [-0.05, 0.72, 0], '#ffe680', 2.8],
-      ['f4', [0.16, 0.2, 0.16], [-0.14, 0.32, 0.08], '#ff7a1a', 2.1],
+    // języki ognia: [nazwa, x, z, [podstawa w,h], [czubek w,h], kolor, kolor czubka]
+    const flames: [string, number, number, number, number, number, number, string, string][] = [
+      ['f0', 0, 0, 0.3, 0.26, 0.18, 0.22, '#ff6a00', '#ff8a00'],
+      ['f1', -0.13, -0.07, 0.2, 0.2, 0.12, 0.14, '#ff3d00', '#ff6a00'],
+      ['f2', 0.13, 0.08, 0.2, 0.22, 0.11, 0.15, '#ff3d00', '#ff6a00'],
+      ['f3', 0.01, 0.04, 0.16, 0.3, 0.08, 0.14, '#ffb000', '#ffe27a'],
     ];
-    for (const [name, s, p, col, g] of flames) {
-      const px = p[0] ?? 0;
-      const py = p[1] ?? 0;
-      const pz = p[2] ?? 0;
-      b.pivot(name, 'all', [px, py - (s[1] ?? 0) / 2, pz]);
-      b.box(name, [s[0] ?? 0.2, s[1] ?? 0.2, s[2] ?? 0.2], [px, py, pz], col, { glow: g, rot: [0, 0.785, 0] });
+    for (const [name, x, z, bw, bh, tw, th, c1, c2] of flames) {
+      b.pivot(name, 'all', [x, 0.16, z]);
+      const glowK = name === 'f3' ? 1.5 : 1.25;
+      b.box(name, [bw, bh, bw], [x, 0.16 + bh / 2, z], c1, { glow: glowK, rot: [0, 0.785, 0] });
+      b.box(name, [tw, th, tw], [x, 0.16 + bh + th / 2 - 0.02, z], c2, { glow: glowK + 0.2, rot: [0, 0.785, 0] });
     }
+    b.pivot('f4', 'all', [0.04, 0.6, 0]);
+    b.box('f4', [0.06, 0.06, 0.06], [0.04, 0.66, 0], '#ffd23f', { glow: 2, rot: [0.6, 0.785, 0] });
   },
   motions: () => [
     (c, w) => {
@@ -244,7 +285,7 @@ const campfire: ModelDef = {
         const n = Math.sin(t * (9 + i * 2.3) + i * 1.7) * 0.5 + Math.sin(t * (14 + i) + i) * 0.5;
         w.scale(f, 1 + 0.1 * n, 1 + 0.28 * n, 1 + 0.1 * n);
         w.rot(f, 0, t * (1 + i * 0.3), 0.06 * n);
-        if (i === 3) w.pos(f, 0.03 * Math.sin(t * 5), 0.06 * ((t * 1.5) % 1), 0);
+        if (i === 4) w.pos(f, 0.05 * Math.sin(t * 5), 0.35 * ((t * 1.1) % 1), 0.03 * Math.cos(t * 4));
       });
       if (c.anim === 'sleep' || c.anim === 'hide') {
         const k = c.anim === 'hide' ? Math.max(0.0001, 1 - c.p) : 0.4;
@@ -381,20 +422,21 @@ const podium: ModelDef = {
   radius: 0.75,
   receiveShadow: true,
   build(b) {
-    const LILAC = '#e8dcff';
-    const CREAM = '#fff8f0';
-    b.box('all', [1.5, 0.22, 1.0], [0, 0.11, 0], LILAC, { shade: 0.85 });
-    b.box('all', [1.0, 0.22, 1.5], [0, 0.11, 0], LILAC, { shade: 0.85 });
-    b.box('all', [1.3, 0.22, 1.3], [0, 0.11, 0], LILAC, { shade: 0.85, rot: [0, 0.785, 0] });
-    b.box('all', [1.06, 0.2, 0.74], [0, 0.32, 0], CREAM);
-    b.box('all', [0.74, 0.2, 1.06], [0, 0.32, 0], CREAM);
-    b.box('all', [0.92, 0.2, 0.92], [0, 0.32, 0], CREAM, { rot: [0, 0.785, 0] });
-    b.box('all', [1.1, 0.04, 0.78], [0, 0.43, 0], GOLD, { glow: 0.8 });
-    b.box('all', [0.78, 0.04, 1.1], [0, 0.43, 0], GOLD, { glow: 0.8 });
-    // gwiazdka z przodu
-    b.box('all', [0.16, 0.16, 0.03], [0, 0.11, 0.76], GOLD, { glow: 1.6, rot: [0, 0, 0.785] });
-    b.box('all', [0.08, 0.2, 0.03], [0, 0.11, 0.765], GOLD, { glow: 1.6 });
-    b.box('all', [0.2, 0.08, 0.03], [0, 0.11, 0.765], GOLD, { glow: 1.6 });
+    const LILAC = '#d9c6ff';
+    const LILAC2 = '#c4acf5';
+    const CREAM = '#ffeef6';
+    b.box('all', [1.5, 0.22, 1.0], [0, 0.11, 0], LILAC, { shade: 0.8 });
+    b.box('all', [1.0, 0.22, 1.5], [0, 0.11, 0], LILAC, { shade: 0.8 });
+    b.box('all', [1.3, 0.22, 1.3], [0, 0.11, 0], LILAC2, { shade: 0.8, rot: [0, 0.785, 0] });
+    b.box('all', [1.06, 0.2, 0.74], [0, 0.32, 0], CREAM, { shade: 0.85 });
+    b.box('all', [0.74, 0.2, 1.06], [0, 0.32, 0], CREAM, { shade: 0.85 });
+    b.box('all', [0.92, 0.2, 0.92], [0, 0.32, 0], CREAM, { shade: 0.85, rot: [0, 0.785, 0] });
+    b.box('all', [1.1, 0.05, 0.78], [0, 0.235, 0], GOLD, { glow: 0.5 });
+    b.box('all', [0.78, 0.05, 1.1], [0, 0.235, 0], GOLD, { glow: 0.5 });
+    b.box('all', [0.96, 0.05, 0.96], [0, 0.235, 0], GOLD, { glow: 0.5, rot: [0, 0.785, 0] });
+    // klejnoty na bokach
+    const gems: [number, number, string][] = [[0, 0.76, '#ff6fb5'], [0.76, 0, '#4fd2ff'], [-0.76, 0, '#a97cff'], [0, -0.76, '#56e8a0']];
+    for (const [x, z, c] of gems) b.box('all', [0.12, 0.12, 0.12], [x, 0.12, z], c, { glow: 1.1, rot: [0, 0.785, 0.785] });
   },
   motions: () => [propHit, propShowHide],
 };
@@ -403,7 +445,7 @@ const podium: ModelDef = {
 const vine: ModelDef = {
   height: 1.8,
   radius: 0.4,
-  holds: ['hit', 'hide', 'open'],
+  holds: ['hit', 'hide'],
   durations: { hit: 0.9, hide: 0.9, appear: 0.8 },
   build(b) {
     const V = '#2f8f3a';
@@ -455,7 +497,8 @@ const vine: ModelDef = {
         w.rot('v3', 0.7 * wilt, 0, 0.25 * wilt);
         w.rot('bud', 0.6 * wilt, 0, 0);
         w.scale('bud', 1 - 0.3 * wilt);
-        fx.tintGroup('vine', 1 - 0.25 * wilt, 1 - 0.5 * wilt, 1 - 0.65 * wilt);
+        fx.tintGroup('vine', 1 - 0.15 * wilt, 1 - 0.45 * wilt, 1 - 0.7 * wilt);
+        fx.glowGroup('vine', '#6b4212', 0.45 * wilt);
         fx.flash(c.anim === 'hit' ? 0.6 * (1 - ramp(p, 0, 0.35)) : 0);
       }
       if (c.anim === 'hide') {
@@ -506,18 +549,19 @@ const mushroom: ModelDef = {
   radius: 0.35,
   build(b) {
     b.box('all', [0.18, 0.36, 0.18], [0, 0.18, 0], '#f3ead2');
-    b.box('all', [0.58, 0.18, 0.58], [0, 0.43, 0], '#4fc8ff', { group: 'cap', shade: 0.8 });
-    b.box('all', [0.38, 0.1, 0.38], [0, 0.56, 0], '#6fd8ff', { group: 'cap' });
+    b.box('all', [0.58, 0.18, 0.58], [0, 0.43, 0], '#2f9bff', { group: 'cap', shade: 0.75 });
+    b.box('all', [0.38, 0.1, 0.38], [0, 0.56, 0], '#4fb4ff', { group: 'cap' });
+    b.box('all', [0.5, 0.03, 0.5], [0, 0.33, 0], '#bfe8ff', { glow: 1.2 });
     for (const [x, z] of [[0.18, 0.1], [-0.12, -0.16], [0.02, 0.22], [-0.2, 0.12]] as const) {
       b.box('all', [0.08, 0.02, 0.08], [x, 0.525, z], '#e8fbff', { glow: 1.6 });
     }
     // mniejszy obok
     b.box('all', [0.1, 0.2, 0.1], [0.3, 0.1, 0.15], '#f3ead2');
-    b.box('all', [0.3, 0.1, 0.3], [0.3, 0.24, 0.15], '#b48cff', { group: 'cap' });
+    b.box('all', [0.3, 0.1, 0.3], [0.3, 0.24, 0.15], '#9a6bff', { group: 'cap' });
   },
   motions: () => [
     (c, w, fx) => {
-      fx.glowGroup('cap', '#58b8ff', 0.7 + 0.3 * Math.sin(c.time * 1.8));
+      fx.glowGroup('cap', '#3aa0ff', 0.55 + 0.25 * Math.sin(c.time * 1.8));
       w.scale('all', 1, 1 + 0.02 * Math.sin(c.time * 1.8), 1);
     },
     propHit,
@@ -532,8 +576,8 @@ const crystal: ModelDef = {
   build(b) {
     b.box('all', [0.7, 0.2, 0.6], [0, 0.1, 0], '#6f7682', { shade: 0.8 });
     b.box('all', [0.4, 0.12, 0.3], [0.2, 0.2, -0.1], '#838a96');
-    const C1 = '#b48cff';
-    const C2 = '#7fe8ff';
+    const C1 = '#a77bff';
+    const C2 = '#5fd8ff';
     b.box('all', [0.22, 0.78, 0.22], [0, 0.56, 0], C1, { rot: [0.08, 0.4, 0.12], group: 'crystal' });
     b.box('all', [0.16, 0.16, 0.16], [-0.05, 0.98, 0.03], C1, { rot: [0.785, 0.4, 0.785], group: 'crystal' });
     b.box('all', [0.16, 0.55, 0.16], [0.22, 0.42, 0.06], C2, { rot: [0, 0.2, -0.45], group: 'crystal' });
@@ -543,7 +587,7 @@ const crystal: ModelDef = {
   },
   motions: () => [
     (c, _w: PoseWriter, fx) => {
-      fx.glowGroup('crystal', '#9f86ff', 0.7 + 0.35 * Math.sin(c.time * 2.1));
+      fx.glowGroup('crystal', '#8a6bff', 0.75 + 0.3 * Math.sin(c.time * 2.1));
     },
     propHit,
     propShowHide,

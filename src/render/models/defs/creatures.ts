@@ -14,37 +14,41 @@ import { cheeks, eyePair, INK, WHITE } from './common';
 const P_GREEN = '#5fd35f';
 const P_DARK = '#3fae48';
 const P_LIGHT = '#a6f08f';
-const P_EAR = '#8fe874';
+const P_EAR = '#a4f06f';
 
 export const plusik: ModelDef = {
   height: 1.15,
   radius: 0.4,
   build(b) {
     b.pivot('body', 'all', [0, 0.1, 0]);
-    b.pivot('eyes', 'body', [0, 0.47, 0.33]);
-    b.pivot('earL', 'body', [0.17, 0.66, -0.04]);
-    b.pivot('earR', 'body', [-0.17, 0.66, -0.04]);
+    b.pivot('eyes', 'body', [0, 0.5, 0.33]);
+    b.pivot('earL', 'body', [0.17, 0.68, -0.04]);
+    b.pivot('earR', 'body', [-0.17, 0.68, -0.04]);
     b.pivot('tail', 'body', [0, 0.3, -0.33]);
 
     b.box('body', [0.7, 0.58, 0.64], [0, 0.39, 0], P_GREEN, { shade: 0.78 });
-    b.box('body', [0.42, 0.26, 0.02], [0, 0.26, 0.325], P_LIGHT, { shade: 1 });
     // łapki
     b.pair('all', 'all', [0.18, 0.1, 0.24], [0.2, 0.05, 0.14], P_DARK);
     b.pair('all', 'all', [0.18, 0.1, 0.22], [0.2, 0.05, -0.17], P_DARK);
     b.pair('all', 'all', [0.14, 0.03, 0.04], [0.2, 0.08, 0.265], P_LIGHT, { shade: 1 });
-    // twarz
-    eyePair(b, 'eyes', { y: 0.47, z: 0.33, dx: 0.15, w: 0.11, h: 0.15 });
-    b.box('body', [0.08, 0.055, 0.03], [0, 0.385, 0.335], '#ff7fa8', { shade: 1 });
-    b.pair('body', 'body', [0.045, 0.065, 0.02], [0.026, 0.325, 0.33], WHITE, { shade: 1 });
-    cheeks(b, 'body', { y: 0.37, z: 0.33, dx: 0.25, w: 0.1 });
+    // twarz: oczy, pyszczek z noskiem i ząbkami, rumieńce
+    eyePair(b, 'eyes', { y: 0.5, z: 0.33, dx: 0.155, w: 0.11, h: 0.15 });
+    b.box('body', [0.3, 0.15, 0.02], [0, 0.325, 0.325], P_LIGHT, { shade: 1 });
+    b.box('body', [0.09, 0.06, 0.03], [0, 0.39, 0.335], '#ff7fa8', { shade: 1 });
+    b.box('body', [0.14, 0.025, 0.02], [0, 0.35, 0.335], '#2f7a36', { shade: 1 });
+    b.pair('body', 'body', [0.045, 0.06, 0.02], [0.026, 0.31, 0.335], WHITE, { shade: 1 });
+    cheeks(b, 'body', { y: 0.38, z: 0.33, dx: 0.255, w: 0.1 });
     // ogonek-pompon
     b.box('tail', [0.2, 0.2, 0.14], [0, 0.3, -0.38], WHITE, { shade: 0.85 });
-    // uszy „+”
-    for (const [ear, x, tilt] of [['earL', 0.17, -0.22], ['earR', -0.17, 0.22]] as const) {
-      b.box(ear, [0.1, 0.16, 0.1], [x, 0.74, -0.04], P_GREEN);
-      b.box(ear, [0.13, 0.4, 0.11], [x + tilt * 0.3, 1.0, -0.04], P_EAR, { rot: [0, 0, tilt] });
-      b.box(ear, [0.4, 0.13, 0.11], [x + tilt * 0.25, 1.0, -0.04], P_EAR, { rot: [0, 0, tilt] });
-      b.box(ear, [0.07, 0.07, 0.02], [x + tilt * 0.25, 1.0, 0.02], '#ffc2d6', { rot: [0, 0, tilt], shade: 1 });
+    // uszy „+” (odchylone na zewnątrz)
+    for (const [ear, x, s] of [['earL', 0.17, 1], ['earR', -0.17, -1]] as const) {
+      const tilt = -s * 0.16;
+      const cx = x + s * 0.02;
+      const pl = (dy: number): [number, number, number] => [cx - Math.sin(tilt) * dy, 0.74 + Math.cos(tilt) * dy, -0.04];
+      b.box(ear, [0.1, 0.14, 0.1], [x, 0.74, -0.04], P_GREEN);
+      b.box(ear, [0.11, 0.32, 0.1], pl(0.25), P_EAR, { rot: [0, 0, tilt] });
+      b.box(ear, [0.32, 0.11, 0.1], pl(0.25), P_EAR, { rot: [0, 0, tilt] });
+      b.box(ear, [0.06, 0.06, 0.02], [pl(0.25)[0], pl(0.25)[1], 0.015], '#ffb3cc', { rot: [0, 0, tilt], shade: 1 });
     }
   },
   motions: () => [
@@ -80,10 +84,21 @@ export const plusik: ModelDef = {
 
 const D_BODY = '#8fe3c0';
 const D_BODY_DARK = '#63c9a2';
-const D_SEG_A = '#ffb46b';
-const D_SEG_B = '#ff9448';
-const D_CORE = '#e2742f';
-const D_LIT = '#ffe56b';
+const D_SHELL = '#ffbf7f';
+const D_SHELL_TOP = '#ffd4a3';
+const D_SEG = '#e8732c';
+const D_LIT = '#ffc933';
+/** Spirala na boku muszli (u = oś Z od tyłu 0 do przodu 6, v = wysokość 0..6), od zewnątrz do środka. */
+const SPIRAL: readonly (readonly [number, number])[] = [
+  [6, 1], [6, 2], [6, 3], [6, 4], [6, 5],
+  [5, 6], [4, 6], [3, 6], [2, 6], [1, 6],
+  [0, 5], [0, 4], [0, 3], [0, 2], [0, 1],
+  [1, 0], [2, 0], [3, 0],
+  [4, 1], [4, 2], [4, 3], [4, 4],
+  [3, 4], [2, 4],
+  [2, 3],
+  [3, 3],
+];
 
 export const dopelniak: ModelDef = {
   height: 1.05,
@@ -109,40 +124,38 @@ export const dopelniak: ModelDef = {
       b.box(st, [0.08, 0.09, 0.03], [x, 0.78, 0.56], INK, { shade: 1 });
       b.box(st, [0.03, 0.03, 0.02], [x - 0.02, 0.8, 0.58], WHITE, { shade: 1 });
     }
-    // muszla: rdzeń + spirala 10 segmentów (od środka na zewnątrz)
-    const cy = 0.62;
-    const cz = -0.1;
-    b.box('shell', [0.34, 0.52, 0.52], [0, cy, cz], D_CORE);
-    for (let i = 0; i < 10; i++) {
-      const phi = ((150 - (9 - i) * 44) * Math.PI) / 180;
-      const r = 0.1 + i * 0.031;
-      const th = 0.1 + i * 0.012;
-      const len = r * 0.768 * 1.12 + 0.02;
-      const wx = 0.3 + i * 0.016;
-      const y = cy + r * Math.cos(phi);
-      const z = cz + r * Math.sin(phi);
-      const col = i % 2 === 0 ? D_SEG_A : D_SEG_B;
-      b.box('shell', [wx, th, len], [0, y, z], col, { rot: [phi, 0, 0], name: `seg${i}`, mat: solidMaterial(col) });
-    }
-    // żeby kolejność segmentów była czytelna, środek spirali — mała jasna kropka
-    b.box('shell', [0.36, 0.06, 0.06], [0, cy, cz], '#fff1c9', { shade: 1 });
+    // muszla: zaokrąglony blok + spirala z kafelków po obu bokach, podzielona na 10 segmentów
+    const cy = 0.64;
+    const cz = -0.12;
+    b.box('shell', [0.34, 0.74, 0.56], [0, cy, cz], D_SHELL, { shade: 0.82 });
+    b.box('shell', [0.34, 0.56, 0.74], [0, cy, cz], D_SHELL, { shade: 0.82 });
+    b.box('shell', [0.26, 0.05, 0.46], [0, cy + 0.39, cz], D_SHELL_TOP, { shade: 1 });
+    b.box('shell', [0.26, 0.46, 0.05], [0, cy, cz + 0.39], D_SHELL, { shade: 0.85 });
+    b.box('shell', [0.26, 0.46, 0.05], [0, cy, cz - 0.39], D_SHELL, { shade: 0.85 });
+    SPIRAL.forEach(([u, v], i) => {
+      const seg = Math.floor((i * 10) / SPIRAL.length);
+      const y = cy + (v - 3) * 0.1;
+      const z = cz + (u - 3) * 0.1;
+      for (const sx of [1, -1]) {
+        b.box('shell', [0.03, 0.088, 0.088], [sx * 0.18, y, z], D_SEG, { name: `seg${seg}`, mat: solidMaterial(D_SEG) });
+      }
+    });
   },
   motions: () => {
-    const segCol = [D_SEG_A, D_SEG_B];
-    const lit = glowMaterial(D_LIT, 1.7);
-    const litAll = glowMaterial('#fff6b0', 2.6);
+    const dim = solidMaterial(D_SEG);
+    const lit = glowMaterial(D_LIT, 0.95);
+    const litAll = glowMaterial('#ffe066', 1.35);
     const cycle: MotionFn = (c, _w, fx) => {
-      // 10 × 0,32 s zapalania, 0,9 s pełna „dziesiątka”, 0,4 s przerwy
-      const period = 10 * 0.32 + 0.9 + 0.4;
+      // 10 × 0,32 s zapalania (od zewnątrz do środka), 0,9 s pełna „dziesiątka”, 0,5 s przerwy
+      const period = 10 * 0.32 + 0.9 + 0.5;
       const f = (c.time * (c.anim === 'dance' ? 1.8 : 1)) % period;
       const n = Math.min(10, Math.floor(f / 0.32) + 1);
       const full = f >= 3.2 && f < 4.1;
-      const off = f >= 4.1;
+      const off = f >= 4.1 || c.anim === 'sleep';
       for (let i = 0; i < 10; i++) {
         const m = fx.named(`seg${i}`);
         if (!m) continue;
-        const on = !off && i < n;
-        m.material = full ? (Math.floor((f - 3.2) / 0.15) % 2 === 0 ? litAll : lit) : on ? lit : solidMaterial(segCol[i % 2] ?? D_SEG_A);
+        m.material = off ? dim : full ? (Math.floor((f - 3.2) / 0.15) % 2 === 0 ? litAll : lit) : i < n ? lit : dim;
       }
     };
     return [
@@ -319,14 +332,13 @@ export const koniczynek: ModelDef = {
         const y = lx * Math.sin(rz) + ly * Math.cos(rz);
         return [x, cy + y, 0];
       };
-      b.box('head', [0.14, 0.14, 0.09], put(0, 0.15), K_LEAF, { rot: [0, 0, rz], group: 'leaf' });
-      b.box('head', [0.16, 0.17, 0.09], put(0.08, 0.26), K_LEAF, { rot: [0, 0, rz], group: 'leaf' });
-      b.box('head', [0.16, 0.17, 0.09], put(-0.08, 0.26), K_LEAF, { rot: [0, 0, rz], group: 'leaf' });
-      b.box('head', [0.03, 0.2, 0.02], [...put(0, 0.2)].map((v, j) => (j === 2 ? 0.05 : v)) as [number, number, number], K_LEAF_LIGHT, {
-        rot: [0, 0, rz],
-        group: 'leaf',
-        shade: 1,
-      });
+      // serduszko z trzech rombów: podstawa + dwa „płatki” (wcięcie na zewnątrz)
+      const d = rz + Math.PI / 4;
+      b.box('head', [0.2, 0.2, 0.09], put(0, 0.15), K_LEAF, { rot: [0, 0, d], group: 'leaf' });
+      b.box('head', [0.16, 0.16, 0.09], put(0.08, 0.25), K_LEAF, { rot: [0, 0, d], group: 'leaf' });
+      b.box('head', [0.16, 0.16, 0.09], put(-0.08, 0.25), K_LEAF, { rot: [0, 0, d], group: 'leaf' });
+      const vein = put(0, 0.19);
+      b.box('head', [0.025, 0.18, 0.02], [vein[0], vein[1], 0.05], K_LEAF_LIGHT, { rot: [0, 0, rz], group: 'leaf', shade: 1 });
     }
     eyePair(b, 'eyes', { y: cy + 0.02, z: 0.09, dx: 0.06, w: 0.055, h: 0.075 });
     b.box('head', [0.07, 0.022, 0.02], [0, cy - 0.065, 0.09], '#1d5e2a', { shade: 1 });

@@ -16,6 +16,7 @@ import {
 } from 'postprocessing';
 import type { QualityLevel } from '../game/contracts';
 import { DynamicResolution, QUALITY_PRESETS, type QualityPreset } from './quality';
+import { GradeEffect } from './grade';
 
 export class Engine {
   readonly renderer: THREE.WebGLRenderer;
@@ -24,6 +25,11 @@ export class Engine {
   readonly dyn: DynamicResolution;
   private composer: EffectComposer | null = null;
   private bloom: BloomEffect | null = null;
+  private sat: HueSaturationEffect | null = null;
+  private satBase = 0.08;
+  private grade: GradeEffect | null = null;
+  private gradeMul = new THREE.Color(1, 1, 1);
+  private gradeLift = new THREE.Color(0, 0, 0);
   private width = 1;
   private height = 1;
   private bloomBase = 1;
@@ -99,9 +105,12 @@ export class Engine {
       levels: p.bloomLevels,
     });
     const tone = new ToneMappingEffect({ mode: ToneMappingMode.NEUTRAL });
-    const sat = new HueSaturationEffect({ saturation: 0.08 });
+    const sat = new HueSaturationEffect({ saturation: this.satBase });
+    this.sat = sat;
     const vignette = new VignetteEffect({ offset: 0.32, darkness: 0.42 });
-    composer.addPass(new EffectPass(this.camera, this.bloom, tone, sat, vignette));
+    this.grade = new GradeEffect();
+    this.grade.set(this.gradeMul, this.gradeLift);
+    composer.addPass(new EffectPass(this.camera, this.bloom, tone, this.grade, sat, vignette));
     this.composer = composer;
     this.setBloomStrength(this.bloomBase);
   }
@@ -110,6 +119,21 @@ export class Engine {
     this.composer?.dispose();
     this.composer = null;
     this.bloom = null;
+    this.sat = null;
+    this.grade = null;
+  }
+
+  /** Korekcja barw (paleta pory dnia) — tylko z kompozytorem. */
+  setGrade(mul: THREE.Color, lift: THREE.Color): void {
+    this.gradeMul.copy(mul);
+    this.gradeLift.copy(lift);
+    this.grade?.set(mul, lift);
+  }
+
+  /** Korekta nasycenia (paleta pory dnia). */
+  setSaturation(v: number): void {
+    this.satBase = v;
+    if (this.sat && Math.abs(this.sat.saturation - v) > 1e-4) this.sat.saturation = v;
   }
 
   setBloomStrength(v: number): void {

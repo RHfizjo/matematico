@@ -232,6 +232,40 @@ const demos: Record<string, () => Promise<unknown>> = {
     await frames(30);
     return logStats('base-north');
   },
+  'meadow-pond': async () => {
+    if (label !== 'meadow') await load('meadow');
+    const d = poi('den-dopelniak');
+    if (hero !== null) render.setPosition(hero, { x: d.x - 4, z: d.z + 2 });
+    await frames(30);
+    return logStats('meadow-pond');
+  },
+  'base-orbit': async () => {
+    if (label !== 'base') await load('base');
+    render.cameraOrbit({ x: 0, y: 12, z: 0 }, 36, 0.05);
+    await frames(20);
+    return logStats('base-orbit');
+  },
+  'base-east': async () => {
+    if (label !== 'base') await load('base');
+    const p = poi('station-zagroda');
+    if (hero !== null) render.setPosition(hero, { x: p.x - 1, z: p.z + 3 });
+    await frames(30);
+    return logStats('base-east');
+  },
+  'base-forge': async () => {
+    if (label !== 'base') await load('base');
+    const p = poi('station-kuznia');
+    if (hero !== null) render.setPosition(hero, { x: p.x - 3, z: p.z + 2 });
+    await frames(30);
+    return logStats('base-forge');
+  },
+  'base-south': async () => {
+    if (label !== 'base') await load('base');
+    const p = poi('station-karty');
+    if (hero !== null) render.setPosition(hero, { x: p.x - 7, z: p.z - 1 });
+    await frames(30);
+    return logStats('base-south');
+  },
   'title-orbit': async () => {
     if (label !== 'base' && label !== 'meadow') await load('meadow');
     render.cameraOrbit({ x: 0, y: 14, z: 0 }, 58, 0.05);
@@ -246,6 +280,22 @@ const demos: Record<string, () => Promise<unknown>> = {
     if (t && hero !== null) render.setPosition(hero, { x: t.x - 1.2, z: t.z - 2.8 });
     await frames(40);
     return logStats('fade');
+  },
+  closeup: async () => {
+    if (label !== 'base') await load('base');
+    const k = info?.pois.find((p) => p.id === 'station-karty');
+    if (k?.entity !== undefined) {
+      if (hero !== null) render.setPosition(hero, { x: k.pos.x - 1, z: k.pos.z + 0.5 });
+      render.cameraCloseup(k.entity);
+      void render.play(k.entity, 'cheer');
+    }
+    await frames(40);
+    return logStats('closeup');
+  },
+  dim: async () => {
+    render.setFocusDim(true);
+    await frames(20);
+    return logStats('dim');
   },
   combat: async () => {
     await load('dungeon-room', 'fight');

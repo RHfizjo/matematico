@@ -77,7 +77,7 @@ export function playTransform(ctx: TransformContext): Promise<void> {
       const puff = 1 + 0.15 * ramp(t, 0.85, 1.02);
       const sq = 1 - 0.1 * ramp(t, 0.6, 0.85) * (1 - ramp(t, 0.85, 1.0));
       fromFx.scale.set(fromScale0 * puff / Math.sqrt(sq), fromScale0 * puff * sq, fromScale0 * puff / Math.sqrt(sq));
-      if (fr) fr.externalFlash = 0.35 * a + 1.3 * ramp(t, 0.8, 1.0);
+      if (fr) fr.externalFlash = 0.25 * a + 0.55 * ramp(t, 0.8, 1.0);
       if (sparkled === 0 && t > 0.25) {
         sparkled = 1;
         particles.burst(toLocal(_v.copy(center).setY(center.y + 0.3)), 'sparkle');
@@ -97,12 +97,11 @@ export function playTransform(ctx: TransformContext): Promise<void> {
         particles.burst(c, 'sparkle');
       }
       particles.burst(c, 'poof');
-      particles.burst(c, 'crit');
     }
     if (broke) {
       const k = 1 - easeInCubic(ramp(t, 1.05, 1.17));
       fromFx.scale.setScalar(Math.max(0.0001, fromScale0 * 1.15 * k));
-      if (fr) fr.externalFlash = 1.3 * k;
+      if (fr) fr.externalFlash = 0.8 * k;
     }
     // E: brainglam wskakuje
     if (t >= 1.7) {
@@ -111,7 +110,7 @@ export function playTransform(ctx: TransformContext): Promise<void> {
       toFx.scale.setScalar(s);
       toFx.rotation.y = (1 - easeOutCubic(e)) * Math.PI * 2.5;
       toFx.position.y = 0.25 * Math.sin(e * Math.PI) / sc;
-      if (tr) tr.externalFlash = 0.9 * (1 - e);
+      if (tr) tr.externalFlash = 0.45 * (1 - e);
     }
     // F: brokat i radość
     if (!popped && t >= 2.0) {

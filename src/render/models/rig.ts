@@ -131,6 +131,8 @@ export class Rig implements ModelRig {
   private readonly rest: Float32Array;
   private readonly pose: PoseWriter;
   private readonly from: PoseWriter;
+  /** Poza faktycznie zastosowana w ostatniej klatce (po przenikaniu) — punkt startu kolejnego przenikania. */
+  private readonly applied: PoseWriter;
   private readonly motions: MotionFn[];
   private readonly holds: ReadonlySet<AnimName>;
   private readonly durations: Partial<Record<AnimName, number>>;
@@ -192,6 +194,7 @@ export class Rig implements ModelRig {
     });
     this.pose = new PoseWriter(index);
     this.from = new PoseWriter(index);
+    this.applied = new PoseWriter(index);
     for (const [name, g] of this.built.groups) {
       this.groupStates.set(name, { mat: g.mat, glow: new THREE.Color(0, 0, 0), tint: new THREE.Color(1, 1, 1) });
     }
@@ -247,7 +250,7 @@ export class Rig implements ModelRig {
   }
 
   private start(anim: AnimName, speed: number): void {
-    this.from.copyFrom(this.pose);
+    this.from.copyFrom(this.applied);
     this.fade = 0;
     this.anim = anim;
     this.t = 0;
@@ -288,7 +291,7 @@ export class Rig implements ModelRig {
       }
     }
     this.evaluate(d);
-    for (const fn of [...this.drivers]) fn(d);
+    if (this.drivers.size > 0) for (const fn of [...this.drivers]) fn(d);
   }
 
   private evaluate(dt: number): void {
@@ -310,27 +313,49 @@ export class Rig implements ModelRig {
     const a = this.from.data;
     const b = this.pose.data;
     const r = this.rest;
+    const blend = w < 1;
     for (let i = 0; i < this.pivotList.length; i++) {
       const o = this.pivotList[i];
       if (!o) continue;
       const k = i * STRIDE;
-      const v = (j: number): number => {
-        const bv = b[k + j] ?? 0;
-        if (w >= 1) return bv;
-        const av = a[k + j] ?? 0;
-        return av + (bv - av) * w;
-      };
-      o.position.set((r[k] ?? 0) + v(0), (r[k + 1] ?? 0) + v(1), (r[k + 2] ?? 0) + v(2));
-      o.rotation.set((r[k + 3] ?? 0) + v(3), (r[k + 4] ?? 0) + v(4), (r[k + 5] ?? 0) + v(5));
-      o.scale.set((r[k + 6] ?? 1) * v(6), (r[k + 7] ?? 1) * v(7), (r[k + 8] ?? 1) * v(8));
+      let px = b[k] ?? 0, py = b[k + 1] ?? 0, pz = b[k + 2] ?? 0;
+      let rx = b[k + 3] ?? 0, ry = b[k + 4] ?? 0, rz = b[k + 5] ?? 0;
+      let sx = b[k + 6] ?? 1, sy = b[k + 7] ?? 1, sz = b[k + 8] ?? 1;
+      if (blend) {
+        px = (a[k] ?? 0) + (px - (a[k] ?? 0)) * w;
+        py = (a[k + 1] ?? 0) + (py - (a[k + 1] ?? 0)) * w;
+        pz = (a[k + 2] ?? 0) + (pz - (a[k + 2] ?? 0)) * w;
+        rx = (a[k + 3] ?? 0) + (rx - (a[k + 3] ?? 0)) * w;
+        ry = (a[k + 4] ?? 0) + (ry - (a[k + 4] ?? 0)) * w;
+        rz = (a[k + 5] ?? 0) + (rz - (a[k + 5] ?? 0)) * w;
+        sx = (a[k + 6] ?? 1) + (sx - (a[k + 6] ?? 1)) * w;
+        sy = (a[k + 7] ?? 1) + (sy - (a[k + 7] ?? 1)) * w;
+        sz = (a[k + 8] ?? 1) + (sz - (a[k + 8] ?? 1)) * w;
+      }
+      const ap = this.applied.data;
+      ap[k] = px;
+      ap[k + 1] = py;
+      ap[k + 2] = pz;
+      ap[k + 3] = rx;
+      ap[k + 4] = ry;
+      ap[k + 5] = rz;
+      ap[k + 6] = sx;
+      ap[k + 7] = sy;
+      ap[k + 8] = sz;
+      o.position.set((r[k] ?? 0) + px, (r[k + 1] ?? 0) + py, (r[k + 2] ?? 0) + pz);
+      o.rotation.set((r[k + 3] ?? 0) + rx, (r[k + 4] ?? 0) + ry, (r[k + 5] ?? 0) + rz);
+      o.scale.set((r[k + 6] ?? 1) * sx, (r[k + 7] ?? 1) * sy, (r[k + 8] ?? 1) * sz);
     }
     this.applyMaterials();
   }
 
   private applyMaterials(): void {
     const flash = Math.max(this.flashFrame, this.externalFlash);
-    const hl = this.highlight ? 0.22 + 0.16 * Math.sin(this.time * 6) : 0;
-    const boost = flash > 0.002 || hl > 0;
+    // Podświetlenie: rozjaśnienie proporcjonalne do koloru (zachowuje nasycenie) + lekka ciepła poświata, pulsuje.
+    const pulse = this.highlight ? 0.5 + 0.5 * Math.sin(this.time * 5.5) : 0;
+    const hlMul = this.highlight ? 1.22 + 0.2 * pulse : 1;
+    const hl = this.highlight ? 0.04 + 0.06 * pulse : 0;
+    const boost = flash > 0.002 || this.highlight;
     if (boost) {
       if (!this.ownBase) {
         this.ownBase = ownedClone(this.baseMat);
@@ -341,10 +366,12 @@ export class Rig implements ModelRig {
         this.boosted = true;
       }
       const e0 = this.ownBase.userData.emissive0 as THREE.Color;
+      const c0 = this.ownBase.userData.color0 as THREE.Color;
       this.ownBase.emissive.copy(e0);
       this.ownBase.emissive.r += FLASH.r * flash + HIGHLIGHT.r * hl;
       this.ownBase.emissive.g += FLASH.g * flash + HIGHLIGHT.g * hl;
       this.ownBase.emissive.b += FLASH.b * flash + HIGHLIGHT.b * hl;
+      this.ownBase.color.copy(c0).multiplyScalar(hlMul);
     } else if (this.boosted) {
       for (const m of this.built.baseMeshes) m.material = this.baseMat;
       this.boosted = false;
@@ -358,7 +385,7 @@ export class Rig implements ModelRig {
         g.mat.emissive.g += FLASH.g * flash + HIGHLIGHT.g * hl;
         g.mat.emissive.b += FLASH.b * flash + HIGHLIGHT.b * hl;
       }
-      g.mat.color.setRGB(c0.r * g.tint.r, c0.g * g.tint.g, c0.b * g.tint.b);
+      g.mat.color.setRGB(c0.r * g.tint.r * hlMul, c0.g * g.tint.g * hlMul, c0.b * g.tint.b * hlMul);
     }
   }
 

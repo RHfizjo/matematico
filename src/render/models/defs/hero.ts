@@ -14,7 +14,7 @@ const HAIR_DARK = '#57321a';
 const SHORTS = '#34466e';
 const SHOE = '#f7f7f2';
 const SHOE_ACCENT = '#ff5d5d';
-const WOOD = '#d9a066';
+const WOOD = '#dcaa6c';
 const WOOD_DARK = '#8a5a2b';
 
 function shade(hex: string, k: number): string {
@@ -72,10 +72,12 @@ export const hero: ModelDef = {
     const hy = 0.6;
     const hz = 0.06;
     const at = (s: number): [number, number, number] => [hx, hy + d[1] * s, hz + d[2] * s];
-    b.box('weapon', [0.06, 0.06, 0.16], at(0.02), WOOD_DARK, { rot: [-a, 0, 0] });
-    b.box('weapon', [0.22, 0.06, 0.06], at(0.12), WOOD_DARK, { rot: [-a, 0, 0] });
-    b.box('weapon', [0.07, 0.1, 0.5], at(0.4), WOOD, { rot: [-a, 0, 0] });
-    b.box('weapon', [0.05, 0.07, 0.08], at(0.68), WOOD, { rot: [-a, 0, 0] });
+    b.box('weapon', [0.055, 0.055, 0.15], at(0.02), '#6b4226', { rot: [-a, 0, 0] });
+    b.box('weapon', [0.07, 0.07, 0.06], at(-0.07), WOOD_DARK, { rot: [-a, 0, 0] });
+    b.box('weapon', [0.07, 0.26, 0.06], at(0.11), WOOD_DARK, { rot: [-a, 0, 0] });
+    b.box('weapon', [0.035, 0.11, 0.44], at(0.36), WOOD, { rot: [-a, 0, 0] });
+    b.box('weapon', [0.04, 0.03, 0.4], at(0.35), '#f0c890', { rot: [-a, 0, 0], shade: 1 });
+    b.box('weapon', [0.035, 0.078, 0.078], at(0.58), WOOD, { rot: [-a + Math.PI / 4, 0, 0] });
 
     // Głowa
     b.box('head', [0.62, 0.58, 0.56], [0, 1.4, 0], SKIN, { shade: 0.88 });

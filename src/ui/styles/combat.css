@@ -1,0 +1,112 @@
+/* Walka kartami: ręka, energia, stosy, „Koniec tury”, pauza, podpowiedź. */
+
+.ct { position: absolute; inset: 0; }
+.ct .ct-pause, .ct .ct-end, .ct .ct-slot { pointer-events: auto; }
+.ct.is-busy .ct-pause, .ct.is-busy .ct-end, .ct.is-busy .ct-slot { pointer-events: none; }
+.ct.is-busy .ct-end { filter: saturate(0.5) opacity(0.7); }
+
+.ct-pause, .ct-left, .ct-right, .ct-tip { transition: opacity 250ms ease, transform 300ms cubic-bezier(0.2, 1.2, 0.4, 1); }
+.ct.is-hidden .ct-pause, .ct.is-hidden .ct-left, .ct.is-hidden .ct-right { opacity: 0; pointer-events: none; }
+.ct.is-hidden .ct-left { transform: translateX(-40px); }
+.ct.is-hidden .ct-right { transform: translateX(40px); }
+.ct.is-hidden .ct-hand { transform: translateY(330px); }
+.ct.is-hidden .ct-slot { pointer-events: none; }
+
+.ui-root .ct-pause {
+  position: absolute; top: var(--gutter); left: var(--gutter); width: 84px; height: 84px; min-height: 0;
+  padding: 16px; border-radius: 24px; background: rgba(255, 250, 240, 0.95);
+}
+.ct-pause .icon { width: 100%; height: 100%; }
+
+.ct-cap { font: 900 14px/1 var(--font); text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-soft); text-align: center; }
+
+/* Lewa kolumna: energia + talia (nad sercem) */
+.ct-left { position: absolute; left: var(--gutter); bottom: calc(var(--gutter) + 84px); display: flex; align-items: flex-end; gap: 12px; }
+.ct-energy {
+  background: rgba(255, 250, 240, 0.95); border: 3px solid var(--ink); border-radius: 22px;
+  padding: 8px 12px 8px; box-shadow: var(--shadow-sm);
+}
+.ct-energy.shake { animation: shake 420ms ease; }
+.ct-stars { display: flex; gap: 2px; margin-top: 4px; }
+.ct-star { width: 64px; height: 64px; }
+.ct-star.icon-star { filter: drop-shadow(0 0 8px rgba(255, 210, 63, 0.8)); animation: star-glint 2.6s ease-in-out infinite; }
+.ct-star.icon-star:nth-child(2) { animation-delay: 0.4s; }
+@keyframes star-glint { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.06) rotate(6deg); } }
+
+.ct-pile {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: rgba(255, 250, 240, 0.9); border: 3px solid var(--ink); border-radius: 18px; padding: 8px 8px 7px;
+  box-shadow: var(--shadow-sm);
+}
+.ct-pile .icon { width: 50px; height: 50px; }
+.ct-pile-n {
+  position: absolute; top: -12px; right: -12px; min-width: 36px; height: 36px; padding: 0 6px;
+  display: flex; align-items: center; justify-content: center; border-radius: 999px;
+  background: #fff; border: 3px solid var(--ink); font: 900 20px/1 var(--font);
+}
+
+/* Prawa kolumna: odrzucone + koniec tury */
+.ct-right { position: absolute; right: var(--gutter); bottom: var(--gutter); display: flex; align-items: flex-end; gap: 14px; }
+.ui-root .ct-end {
+  width: 210px; height: 124px; padding: 10px 16px; border-radius: 28px; border-width: 4px; gap: 10px;
+  background: linear-gradient(#ffc35a, #ff9f1c 60%, #f08a00); color: #fff;
+  font: 900 30px/1.02 var(--font); text-align: left; text-shadow: 0 2px 0 rgba(31, 42, 68, 0.35);
+  box-shadow: inset 0 -7px 0 rgba(31, 42, 68, 0.15), 0 5px 0 var(--ink);
+}
+.ct-end .icon { width: 52px; height: 52px; }
+.ct-end.is-suggested { animation: end-glow 1.2s ease-in-out infinite; }
+@keyframes end-glow {
+  0%, 100% { box-shadow: inset 0 -7px 0 rgba(31, 42, 68, 0.15), 0 5px 0 var(--ink), 0 0 0 0 rgba(255, 159, 28, 0.7); transform: scale(1); }
+  50% { box-shadow: inset 0 -7px 0 rgba(31, 42, 68, 0.15), 0 5px 0 var(--ink), 0 0 0 16px rgba(255, 159, 28, 0); transform: scale(1.05); }
+}
+
+/* Ręka kart */
+.ct-hand {
+  position: absolute; left: 50%; bottom: calc(var(--gutter) - 4px); width: 0; height: 250px; pointer-events: none;
+  transition: transform 380ms cubic-bezier(0.3, 0.9, 0.3, 1);
+}
+.ct-slot {
+  position: absolute; bottom: 0; left: -85px; transform-origin: 50% 100%;
+  transform: translate(var(--x, 0px), var(--y, 0px)) rotate(var(--r, 0deg));
+  transition: transform 300ms cubic-bezier(0.2, 1.2, 0.4, 1), opacity 250ms ease;
+  cursor: pointer; touch-action: none;
+}
+.ct-slot .card { box-shadow: 0 6px 0 rgba(31, 42, 68, 0.25), 0 14px 26px rgba(31, 42, 68, 0.28); }
+.ct-slot.is-pressed { transform: translate(var(--x, 0px), calc(var(--y, 0px) - 48px)) rotate(0deg) scale(1.08); z-index: 50 !important; transition-duration: 160ms; }
+.ct-slot.is-pressed .card.unplayable { transform: none; }
+@media (hover: hover) {
+  .ct-slot:hover { transform: translate(var(--x, 0px), calc(var(--y, 0px) - 26px)) rotate(calc(var(--r, 0deg) * 0.4)); z-index: 40 !important; }
+}
+.ct-slot .card.unplayable { transform: translateY(20px); }
+.ct-slot.is-entering { opacity: 0; transform: translate(calc(-50vw + 240px), 140px) rotate(-30deg) scale(0.4); }
+.ct-slot.is-leaving { opacity: 0; transform: translate(var(--x, 0px), calc(var(--y, 0px) + 90px)) rotate(var(--r, 0deg)) scale(0.85); }
+.ct-slot.is-flying {
+  z-index: 60 !important; opacity: 0; pointer-events: none;
+  transform: translate(calc(var(--x, 0px) + var(--fx, 0px)), calc(var(--y, 0px) + var(--fy, 0px))) rotate(0deg) scale(1.4);
+  transition: transform 420ms cubic-bezier(0.3, 0.7, 0.3, 1), opacity 180ms ease 260ms;
+}
+.ct-slot.shake .card { animation: shake 420ms ease; }
+
+/* Dymek z podpowiedzią dla dziecka */
+.ct-tip {
+  position: absolute; left: 50%; bottom: 312px; transform: translateX(-50%);
+  max-width: min(640px, calc(100vw - 2 * var(--gutter))); width: max-content;
+  display: flex; align-items: center; gap: 12px; padding: 12px 22px 12px 14px;
+  background: #fff; border: 3px solid var(--ink); border-radius: 22px; box-shadow: var(--shadow);
+  font: 800 23px/1.25 var(--font); pointer-events: none !important;
+}
+.ct-tip::after {
+  content: ''; position: absolute; left: 50%; bottom: -11px; width: 18px; height: 18px; margin-left: -9px;
+  background: #fff; border-right: 3px solid var(--ink); border-bottom: 3px solid var(--ink); transform: rotate(45deg);
+}
+.ct-tip .icon { width: 42px; height: 42px; animation: wiggle 2.4s ease-in-out infinite; }
+.ct-tip.is-hidden, .ct.is-hidden .ct-tip { opacity: 0; transform: translate(-50%, 16px); }
+
+.ct-msg {
+  position: absolute; transform: translate(-50%, -100%); padding: 10px 20px; white-space: nowrap;
+  background: #fff0f0; border: 3px solid var(--ink); border-radius: 18px; box-shadow: var(--shadow-sm);
+  font: 900 24px/1.1 var(--font); color: #c93737; pointer-events: none !important; z-index: 70;
+}
+.ct-msg.pop { animation: msg-pop 300ms cubic-bezier(0.2, 1.4, 0.4, 1); }
+.ct-msg.is-hidden { display: none; }
+@keyframes msg-pop { from { transform: translate(-50%, -80%) scale(0.7); opacity: 0; } to { transform: translate(-50%, -100%) scale(1); opacity: 1; } }

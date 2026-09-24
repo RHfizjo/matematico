@@ -28,19 +28,19 @@ const enum Mode {
 type RGB = readonly [number, number, number];
 
 const C = {
-  gold: [3.2, 2.3, 0.6] as RGB,
-  pink: [3.0, 1.1, 2.3] as RGB,
-  white: [2.6, 2.6, 2.6] as RGB,
-  warm: [2.4, 1.5, 0.6] as RGB,
-  hitWhite: [2.0, 2.0, 1.9] as RGB,
-  yellow: [3.4, 2.8, 0.45] as RGB,
-  blue: [0.5, 1.5, 3.2] as RGB,
-  cyan: [0.9, 2.6, 3.0] as RGB,
-  green: [0.55, 2.6, 0.8] as RGB,
-  mint: [1.3, 3.0, 1.5] as RGB,
-  digit: [1.7, 1.25, 0.35] as RGB,
-  smoke: [0.92, 0.92, 0.95] as RGB,
-  lilac: [2.0, 1.4, 3.2] as RGB,
+  gold: [1.6, 1.0, 0.15] as RGB,
+  pink: [1.6, 0.35, 1.0] as RGB,
+  white: [1.4, 1.4, 1.4] as RGB,
+  warm: [1.5, 0.7, 0.2] as RGB,
+  hitWhite: [1.3, 1.25, 1.15] as RGB,
+  yellow: [1.7, 1.3, 0.08] as RGB,
+  blue: [0.2, 0.7, 1.7] as RGB,
+  cyan: [0.25, 1.3, 1.6] as RGB,
+  green: [0.22, 1.2, 0.28] as RGB,
+  mint: [0.5, 1.35, 0.55] as RGB,
+  digit: [1.35, 0.9, 0.16] as RGB,
+  smoke: [0.9, 0.9, 0.93] as RGB,
+  lilac: [1.0, 0.55, 1.7] as RGB,
 };
 
 function makeAtlas(): THREE.Texture | null {
@@ -94,6 +94,7 @@ export class Particles implements ParticleSystem {
   private readonly mat: THREE.MeshBasicMaterial;
   private readonly atlas: THREE.Texture | null;
   private n = 0;
+  private lastN = 0;
   private readonly rnd = mulberry(1234);
   // stan cząstek (struktura tablic)
   private readonly px = new Float32Array(POOL);
@@ -299,7 +300,7 @@ export class Particles implements ParticleSystem {
    * Wir świecących kostek wokół środka, zbiegający się do środka po `duration` s (przemiana).
    */
   vortex(center: THREE.Vector3, o: VortexOpts): void {
-    const cols = o.colors ?? [C.gold, C.pink, C.white, C.lilac];
+    const cols = o.colors ?? [C.gold, C.pink, C.lilac, C.white, C.cyan];
     for (let k = 0; k < o.count; k++) {
       const i = this.spawn();
       this.age[i] = 0;
@@ -395,9 +396,20 @@ export class Particles implements ParticleSystem {
       i++;
     }
     this.object.count = this.n;
-    this.object.instanceMatrix.needsUpdate = true;
-    this.colorAttr.needsUpdate = true;
-    this.tileAttr.needsUpdate = true;
+    // wysyłamy na GPU tylko aktywny zakres (i nic, gdy nie ma cząstek)
+    if (this.n > 0 || this.lastN > 0) {
+      const m = this.object.instanceMatrix;
+      m.clearUpdateRanges();
+      m.addUpdateRange(0, Math.max(1, this.n) * 16);
+      m.needsUpdate = true;
+      this.colorAttr.clearUpdateRanges();
+      this.colorAttr.addUpdateRange(0, Math.max(1, this.n) * 3);
+      this.colorAttr.needsUpdate = true;
+      this.tileAttr.clearUpdateRanges();
+      this.tileAttr.addUpdateRange(0, Math.max(1, this.n));
+      this.tileAttr.needsUpdate = true;
+    }
+    this.lastN = this.n;
   }
 
   dispose(): void {

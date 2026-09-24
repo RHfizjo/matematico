@@ -63,6 +63,11 @@ function smallerFromLarger(m: number, s: number): number | null {
   return 10 * (tens(m) - tens(s)) + (units(s) - units(m));
 }
 
+/** Iloczyn z tabliczki (oba czynniki 1..10) albo null — 7 × 11 nie jest „sąsiadem w tabliczce”. */
+function tableProduct(x: number, y: number): number | null {
+  return x >= 1 && x <= 10 && y >= 1 && y <= 10 ? x * y : null;
+}
+
 function near(answer: number, w1: number, w2: number): Candidate[] {
   return [
     { value: answer - 1, kind: 'offByOne', weight: w1 },
@@ -132,11 +137,11 @@ function plausible(input: DistractorInput): Candidate[] {
       case 'mul': {
         const p = answer;
         // Sąsiedzi w tabliczce: 7×8 → 49, 63, 48, 64; pomylona para 6×9 = 54.
-        for (const v of [(a - 1) * b, (a + 1) * b, a * (b - 1), a * (b + 1)]) {
-          if (v > 0) c.push({ value: v, kind: 'tableNeighbor', weight: 3 });
+        for (const v of [tableProduct(a - 1, b), tableProduct(a + 1, b), tableProduct(a, b - 1), tableProduct(a, b + 1)]) {
+          if (v !== null) c.push({ value: v, kind: 'tableNeighbor', weight: 3 });
         }
-        for (const v of [(a - 1) * (b + 1), (a + 1) * (b - 1)]) {
-          if (v > 0) c.push({ value: v, kind: 'tableNeighbor', weight: 1.5 });
+        for (const v of [tableProduct(a - 1, b + 1), tableProduct(a + 1, b - 1)]) {
+          if (v !== null) c.push({ value: v, kind: 'tableNeighbor', weight: 1.5 });
         }
         c.push({ value: a + b, kind: 'wrongOp', weight: 1.5 });
         c.push(...near(p, 1, 0.5));
@@ -219,8 +224,8 @@ function plausible(input: DistractorInput): Candidate[] {
       if (idx === 0) {
         // □ : k = q → odpowiedź k·q; sąsiedzi w tabliczce
         const q = result;
-        for (const v of [(q - 1) * k, (q + 1) * k, q * (k - 1), q * (k + 1)]) {
-          if (v > 0) c.push({ value: v, kind: 'tableNeighbor', weight: 3 });
+        for (const v of [tableProduct(q - 1, k), tableProduct(q + 1, k), tableProduct(q, k - 1), tableProduct(q, k + 1)]) {
+          if (v !== null) c.push({ value: v, kind: 'tableNeighbor', weight: 3 });
         }
         c.push({ value: q + k, kind: 'wrongOp', weight: 1.5 });
         if (x >= 10) c.push(...plusMinusTen(x, 0.7));

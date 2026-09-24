@@ -139,7 +139,7 @@ export function bodyMotion(cfg: BodyCfg): MotionFn {
         w.pos('all', 0, 0, -0.28 * hs * knock);
         w.rot('all', -0.32 * knock, 0, 0.16 * Math.sin(p * 26) * (1 - p));
         sq(w, -0.14 * bump(p, 0, 0.45));
-        fx.flash(0.85 * (1 - ramp(p, 0, 0.6)));
+        fx.flash(0.65 * (1 - ramp(p, 0, 0.55)));
         break;
       }
       case 'block': {
@@ -278,8 +278,8 @@ export function bipedMotion(opts: { armSwing?: number; legSwing?: number; gait?:
       }
       case 'block': {
         const g = envelope(p, 0, 0.15, 0.7, 1);
-        w.rot('armL', -1.45 * g, 0, -0.55 * g);
-        w.rot('armR', -1.45 * g, 0, 0.55 * g);
+        w.rot('armL', -1.25 * g, 0, -0.42 * g);
+        w.rot('armR', -1.25 * g, 0, 0.42 * g);
         w.rot('head', 0.12 * g, 0, 0);
         w.rot('legL', -0.2 * g, 0, 0);
         w.rot('legR', 0.2 * g, 0, 0);

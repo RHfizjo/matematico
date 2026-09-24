@@ -63,7 +63,7 @@ function blade(x: number, z: number, h: number, w = 0.09): BoxPart {
 }
 
 const GEOMETRY_BUILDERS: Record<FoliageType, () => THREE.BufferGeometry> = {
-  tuft: () => partsGeometry([blade(-0.08, 0.02, 0.34), blade(0.07, -0.05, 0.44), blade(0.02, 0.09, 0.28), blade(-0.02, -0.1, 0.22)]),
+  tuft: () => partsGeometry([blade(-0.08, 0.02, 0.34), blade(0.07, -0.05, 0.44), blade(0.0, 0.09, 0.27)]),
   tallGrass: () =>
     partsGeometry([blade(-0.12, 0.03, 0.72, 0.08), blade(0.1, -0.06, 0.9, 0.08), blade(0.0, 0.12, 0.6, 0.08), blade(0.05, -0.14, 0.5, 0.07), blade(-0.14, -0.1, 0.45, 0.07)]),
   flower: () =>

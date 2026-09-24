@@ -168,3 +168,27 @@ describe('makeDistractors — niezmienniki', () => {
     expect(makeDistractors(input, 3, createRng(42))).toEqual(makeDistractors(input, 3, createRng(42)));
   });
 });
+
+describe('makeDistractors — regresje z przeglądu', () => {
+  /** Czy v jest iloczynem dwóch czynników z tabliczki 1..10. */
+  const inTable = (v: number): boolean => {
+    for (let x = 1; x <= 10; x++) if (v % x === 0 && v / x >= 1 && v / x <= 10) return true;
+    return false;
+  };
+
+  it('„sąsiedzi w tabliczce” pochodzą z tabliczki 1..10 (7 × 10 → nie 77 = 7 × 11; 10 × 10 → nie 110)', () => {
+    for (let a = 1; a <= 10; a++) {
+      for (let b = 1; b <= 10; b++) {
+        if (a === 1 && b === 1) continue;
+        const choice: DistractorInput = { op: 'mul', operands: [a, b], answer: a * b, categoryId: 'mul.t2', format: 'choice' };
+        // □ : b = a  (dzielna niewiadoma)
+        const missingDiv: DistractorInput = { op: 'div', operands: [b, a], answer: a * b, categoryId: 'div.by2', format: 'missing', missingIndex: 0 };
+        for (const input of [choice, missingDiv]) {
+          for (const [v, kinds] of collect(input, 3, 60)) {
+            if (kinds.has('tableNeighbor')) expect(inTable(v), `${a}, ${b} (${input.format}) → ${v}`).toBe(true);
+          }
+        }
+      }
+    }
+  });
+});

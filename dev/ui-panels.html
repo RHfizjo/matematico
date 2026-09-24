@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>Matematico — panele UI (dev)</title>
+    <style>
+      /* Udawana scena gry pod panelami (żeby było widać przyciemnienie). */
+      #game {
+        background:
+          radial-gradient(ellipse at 70% 18%, #fff8 0 6%, transparent 7%),
+          linear-gradient(180deg, #8fd0ff 0%, #bfe6ff 46%, #7fcf6a 46.2%, #5fb54c 100%);
+      }
+      #game::before, #game::after {
+        content: ''; position: absolute; width: 180px; height: 180px; bottom: 30%;
+        background: #6b4b2a; box-shadow: 0 -150px 0 60px #4fa83c; border-radius: 6px;
+      }
+      #game::before { left: 12%; }
+      #game::after { right: 16%; transform: scale(0.8); }
+      #dev-bar {
+        position: fixed; left: 50%; bottom: 6px; transform: translateX(-50%); z-index: 1000;
+        display: flex; gap: 8px; align-items: center; font: 800 14px Nunito, system-ui, sans-serif;
+        background: #fffaf0e6; border: 2px solid #1f2a44; border-radius: 12px; padding: 4px 10px;
+      }
+      #dev-bar select { font: 800 14px Nunito, system-ui, sans-serif; }
+      #dev-log { max-width: 520px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #4a5775; }
+      body.shot #dev-bar { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <div id="ui"></div>
+    <div id="dev-bar"><label>Stan: <select id="dev-state"></select></label><span id="dev-log"></span></div>
+    <script type="module" src="./ui-panels.ts"></script>
+  </body>
+</html>

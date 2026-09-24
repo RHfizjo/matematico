@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>Matematico — UI rdzeń (dev)</title>
+    <style>
+      /* Udawana scena 3D za UI: niebo, wzgórza, bohater i brainrot z kostek. */
+      body {
+        background:
+          radial-gradient(ellipse 60% 30% at 18% 78%, #7fd46a 0 60%, transparent 61%),
+          radial-gradient(ellipse 70% 32% at 85% 80%, #6cc35a 0 60%, transparent 61%),
+          linear-gradient(#6fc0ff 0%, #a8dcff 45%, #d6f0ff 60%, #8fdc78 60.2%, #5fb84e 100%) !important;
+      }
+      #scene { position: fixed; inset: 0; pointer-events: none; }
+      .cloud { position: absolute; background: #fff; border-radius: 40px; opacity: 0.85; box-shadow: 60px 10px 0 -8px #fff, -50px 14px 0 -12px #fff; }
+      .actor { position: absolute; transform: translate(-50%, -100%); display: none; }
+      body.combat .actor { display: block; }
+      .actor .shadow { position: absolute; left: 50%; bottom: -14px; width: 150%; height: 26px; margin-left: -75%; border-radius: 50%; background: rgba(20, 40, 20, 0.25); }
+      .hero-a { left: 36%; top: 64%; width: 90px; height: 170px; }
+      .hero-a .b { position: absolute; inset: 0; background: linear-gradient(#f7cda6 0 34%, #3fa7ff 34% 70%, #3d5fa8 70%); border: 5px solid #1f2a44; border-radius: 12px; }
+      .enemy-a { left: 64%; top: 62%; width: 170px; height: 150px; }
+      .enemy-a .b { position: absolute; inset: 0; background: linear-gradient(#f3eadf 0 45%, #b58a5a 45%); border: 5px solid #1f2a44; border-radius: 40px 40px 14px 14px; }
+      .enemy-a .b::before, .enemy-a .b::after { content: ''; position: absolute; top: 72px; width: 20px; height: 26px; background: #1f2a44; border-radius: 6px; }
+      .enemy-a .b::before { left: 50px; }
+      .enemy-a .b::after { right: 50px; }
+      #devbar { position: fixed; right: 8px; bottom: 8px; z-index: 999; font: 700 13px system-ui; opacity: 0.8; }
+      #devbar select { font: 700 13px system-ui; padding: 2px 4px; }
+    </style>
+  </head>
+  <body>
+    <div id="scene">
+      <div class="cloud" style="left: 12%; top: 12%; width: 120px; height: 44px"></div>
+      <div class="cloud" style="left: 70%; top: 20%; width: 150px; height: 50px"></div>
+      <div class="cloud" style="left: 44%; top: 8%; width: 90px; height: 36px"></div>
+      <div class="actor hero-a"><div class="shadow"></div><div class="b"></div></div>
+      <div class="actor enemy-a"><div class="shadow"></div><div class="b"></div></div>
+    </div>
+    <div id="ui"></div>
+    <div id="devbar"></div>
+    <script type="module" src="./ui-core.ts"></script>
+  </body>
+</html>

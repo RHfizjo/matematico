@@ -204,7 +204,7 @@ const WATER_COLOR = /* glsl */ `
   float ripple = w1 * 0.6 + w2 * 0.4;
   vec3 col = mix(uWaterShallow, uWaterDeep, clamp(depth * 1.4 - shore * 0.35, 0.0, 1.0));
   col *= 0.92 + 0.12 * ripple;
-  float sparkle = step(0.965, whash(px + floor(t * 2.0))) * (0.5 + 0.5 * ripple);
+  float sparkle = step(0.982, whash(px + floor(t * 2.0))) * (0.5 + 0.5 * ripple);
   float foam = smoothstep(0.55, 0.95, shore + 0.18 * sin(t * 2.0 + px.x * 3.0 + px.y * 2.0));
   col = mix(col, vec3(0.95, 0.98, 1.0), foam * 0.75);
   diffuseColor.rgb = col;
@@ -248,49 +248,4 @@ export function geometryFromWater(m: WaterArrays): THREE.BufferGeometry {
   g.computeBoundingBox();
   g.computeBoundingSphere();
   return g;
-}
-
-// ───────────────────────────── Roślinność (instancje z wiatrem) ─────────────────────────────
-
-/**
- * Materiał dla trawy i kwiatów (InstancedMesh): kołysanie na wietrze proporcjonalne do wysokości wierzchołka.
- * Atrybut aTint (0..1): ile koloru instancji dostaje wierzchołek (łodyga 0, płatki 1).
- */
-export function createFoliageMaterial(): THREE.MeshLambertMaterial {
-  const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
-  mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uTime = worldUniforms.uTime;
-    shader.uniforms.uWind = worldUniforms.uWind;
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float aTint;\nuniform float uTime;\nuniform float uWind;')
-      .replace(
-        '#include <color_vertex>',
-        `vColor = vec4(1.0);
-#ifdef USE_COLOR_ALPHA
-  vColor *= color;
-#elif defined( USE_COLOR )
-  vColor.rgb *= color;
-#endif
-#ifdef USE_INSTANCING_COLOR
-  vColor.rgb = mix(vColor.rgb, vColor.rgb * instanceColor.rgb, aTint);
-#endif`,
-      )
-      .replace(
-        '#include <begin_vertex>',
-        `#include <begin_vertex>
-{
-#ifdef USE_INSTANCING
-  vec3 ip = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
-#else
-  vec3 ip = vec3(0.0);
-#endif
-  float sway = sin(uTime * 1.7 + ip.x * 0.35 + ip.z * 0.27) * 0.6 + sin(uTime * 2.9 + ip.x * 1.3 - ip.z * 0.9) * 0.25;
-  float hgt = max(position.y, 0.0);
-  transformed.x += sway * hgt * hgt * 0.35 * uWind;
-  transformed.z += sway * hgt * hgt * 0.2 * uWind;
-}`,
-      );
-  };
-  mat.customProgramCacheKey = () => 'matematico-foliage-v1';
-  return mat;
 }

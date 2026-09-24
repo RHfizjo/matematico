@@ -31,6 +31,11 @@ interface LivePalette {
   cloudShade: THREE.Color;
   exposure: number;
   bloom: number;
+  saturation: number;
+  gradeMul: THREE.Color;
+  gradeLift: THREE.Color;
+  fireflies: number;
+  fireflyColor: THREE.Color;
   waterDeep: THREE.Color;
   waterShallow: THREE.Color;
   waterGlow: number;
@@ -58,6 +63,11 @@ function toLive(p: Palette): LivePalette {
     cloudShade: c(p.cloudShade),
     exposure: p.exposure,
     bloom: p.bloom,
+    saturation: p.saturation,
+    gradeMul: new THREE.Color().setRGB(...p.grade.mul),
+    gradeLift: new THREE.Color().setRGB(...p.grade.lift),
+    fireflies: p.fireflies,
+    fireflyColor: c(p.fireflyColor),
     waterDeep: c(p.water.deep),
     waterShallow: c(p.water.shallow),
     waterGlow: p.water.glow,
@@ -83,6 +93,11 @@ function lerpLive(out: LivePalette, a: LivePalette, b: LivePalette, t: number): 
   out.cloudShade.lerpColors(a.cloudShade, b.cloudShade, t);
   out.exposure = a.exposure + (b.exposure - a.exposure) * t;
   out.bloom = a.bloom + (b.bloom - a.bloom) * t;
+  out.saturation = a.saturation + (b.saturation - a.saturation) * t;
+  out.gradeMul.lerpColors(a.gradeMul, b.gradeMul, t);
+  out.gradeLift.lerpColors(a.gradeLift, b.gradeLift, t);
+  out.fireflies = a.fireflies + (b.fireflies - a.fireflies) * t;
+  out.fireflyColor.lerpColors(a.fireflyColor, b.fireflyColor, t);
   out.waterDeep.lerpColors(a.waterDeep, b.waterDeep, t);
   out.waterShallow.lerpColors(a.waterShallow, b.waterShallow, t);
   out.waterGlow = a.waterGlow + (b.waterGlow - a.waterGlow) * t;
@@ -101,6 +116,9 @@ function cloneLive(p: LivePalette): LivePalette {
     hemiGround: p.hemiGround.clone(),
     cloudColor: p.cloudColor.clone(),
     cloudShade: p.cloudShade.clone(),
+    gradeMul: p.gradeMul.clone(),
+    gradeLift: p.gradeLift.clone(),
+    fireflyColor: p.fireflyColor.clone(),
     waterDeep: p.waterDeep.clone(),
     waterShallow: p.waterShallow.clone(),
   };
@@ -157,6 +175,9 @@ interface CloudInstance {
   mesh: THREE.InstancedMesh;
   index: number;
   pos: THREE.Vector3;
+  /** Chmury krążą powoli wokół wyspy (nie przelatują przez nią). */
+  angle: number;
+  radius: number;
   scale: number;
   speed: number;
 }
@@ -183,11 +204,15 @@ export class Atmosphere {
   private cloudGroup = new THREE.Group();
   private cloudMat: THREE.MeshLambertMaterial;
   private cloudCenter = new THREE.Vector3();
-  private cloudRadius = 80;
   private readonly tmp = new THREE.Matrix4();
   private readonly tmpQ = new THREE.Quaternion();
   private readonly tmpV = new THREE.Vector3();
   private readonly tmpS = new THREE.Vector3();
+  private readonly up = new THREE.Vector3(0, 1, 0);
+  private readonly axisZ = new THREE.Vector3(0, 0, 1);
+  private readonly sRight = new THREE.Vector3();
+  private readonly sUp = new THREE.Vector3();
+  private readonly sPos = new THREE.Vector3();
   /** Czy scena ma niebo (false w jaskini). */
   outdoor = true;
 
@@ -267,15 +292,17 @@ export class Atmosphere {
     this.apply();
   }
 
-  /** Kostkowe chmury wokół wyspy (środek, promień, wysokość spodu wyspy). */
-  buildClouds(center: THREE.Vector3, radius: number, lowY: number, highY: number, seed: number): void {
+  /**
+   * Kostkowe chmury wokół wyspy: warstwa pod krawędzią (widać ją z góry przy brzegach), warstwa na wysokości
+   * wyspy (ekran tytułowy) i kilka wysoko. radius = promień wyspy, surfaceY = wierzch wyspy.
+   */
+  buildClouds(center: THREE.Vector3, radius: number, surfaceY: number, seed: number): void {
     for (const c of this.cloudGroup.children) {
       if (c instanceof THREE.InstancedMesh) c.geometry.dispose();
     }
     this.cloudGroup.clear();
     this.clouds = [];
     this.cloudCenter.copy(center);
-    this.cloudRadius = radius;
     const rng = mulberry32(seed ^ 0xc10d);
     const table = blockTable();
     const shapes: THREE.BufferGeometry[] = [];
@@ -304,25 +331,42 @@ export class Atmosphere {
       const m = greedyMesh(paddedFromDense(sx, sy, sz, dense, -sx / 2, 0, -sz / 2), table, { jitter: () => 0 });
       shapes.push(geometryFromMesh(m));
     }
-    const perShape = 7;
-    shapes.forEach((geo, si) => {
+    const perShape = 14;
+    shapes.forEach((geo) => {
       const mesh = new THREE.InstancedMesh(geo, this.cloudMat, perShape);
       mesh.frustumCulled = false;
       mesh.castShadow = false;
       mesh.receiveShadow = false;
       for (let i = 0; i < perShape; i++) {
         const ang = rng.range(0, Math.PI * 2);
-        const rr = rng.range(radius * 0.55, radius * 1.25);
-        const high = rng.chance(0.25);
-        const y = high ? highY + rng.range(0, 10) : lowY + rng.range(-10, 4);
-        const inst: CloudInstance = {
+        const layer = rng.next();
+        let rr: number;
+        let y: number;
+        let scale: number;
+        if (layer < 0.5) {
+          // Pod krawędzią wyspy.
+          rr = rng.range(radius * 0.95, radius * 1.6);
+          y = surfaceY - rng.range(6, 16);
+          scale = rng.range(1.3, 2.3);
+        } else if (layer < 0.8) {
+          // Na wysokości wyspy, dalej.
+          rr = rng.range(radius * 1.3, radius * 2.1);
+          y = surfaceY + rng.range(-4, 6);
+          scale = rng.range(1.6, 2.8);
+        } else {
+          rr = rng.range(radius * 0.4, radius * 1.8);
+          y = surfaceY + rng.range(20, 32);
+          scale = rng.range(2, 3.2);
+        }
+        this.clouds.push({
           mesh,
           index: i,
           pos: new THREE.Vector3(center.x + Math.cos(ang) * rr, y, center.z + Math.sin(ang) * rr),
-          scale: rng.range(1.2, 2.4) * (high ? 1.3 : 1),
-          speed: rng.range(0.35, 0.8),
-        };
-        this.clouds.push(inst);
+          angle: ang,
+          radius: rr,
+          scale,
+          speed: rng.range(0.3, 0.7),
+        });
       }
       this.cloudGroup.add(mesh);
     });
@@ -336,12 +380,13 @@ export class Atmosphere {
   }
 
   private updateClouds(dt: number): void {
-    const R = this.cloudRadius * 1.3;
     for (const c of this.clouds) {
-      c.pos.x += c.speed * dt;
-      if (c.pos.x > this.cloudCenter.x + R) c.pos.x -= 2 * R;
+      c.angle += (c.speed / c.radius) * dt;
+      c.pos.x = this.cloudCenter.x + Math.cos(c.angle) * c.radius;
+      c.pos.z = this.cloudCenter.z + Math.sin(c.angle) * c.radius;
+      this.tmpQ.setFromAxisAngle(this.up, -c.angle);
       this.tmpS.set(c.scale, c.scale * 0.8, c.scale);
-      this.tmp.compose(c.pos, this.tmpQ.identity(), this.tmpS);
+      this.tmp.compose(c.pos, this.tmpQ, this.tmpS);
       c.mesh.setMatrixAt(c.index, this.tmp);
     }
     for (const ch of this.cloudGroup.children) if (ch instanceof THREE.InstancedMesh) ch.instanceMatrix.needsUpdate = true;
@@ -364,13 +409,13 @@ export class Atmosphere {
     const sd = this.live.sunDir;
     const texel = this.shadowArea / Math.max(256, this.shadowMapSize);
     const fwd = this.tmpV.copy(sd).negate();
-    const up = Math.abs(fwd.y) > 0.99 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
-    const right = new THREE.Vector3().crossVectors(up, fwd).normalize();
-    const up2 = new THREE.Vector3().crossVectors(fwd, right).normalize();
+    const up = Math.abs(fwd.y) > 0.99 ? this.axisZ : this.up;
+    const right = this.sRight.crossVectors(up, fwd).normalize();
+    const up2 = this.sUp.crossVectors(fwd, right).normalize();
     const pr = Math.round(focus.dot(right) / texel) * texel;
     const pu = Math.round(focus.dot(up2) / texel) * texel;
     const pf = focus.dot(fwd);
-    const snapped = new THREE.Vector3().addScaledVector(right, pr).addScaledVector(up2, pu).addScaledVector(fwd, pf);
+    const snapped = this.sPos.set(0, 0, 0).addScaledVector(right, pr).addScaledVector(up2, pu).addScaledVector(fwd, pf);
     this.sun.target.position.copy(snapped);
     this.sun.position.copy(snapped).addScaledVector(sd, 70);
     this.sun.target.updateMatrixWorld();
@@ -409,6 +454,15 @@ export class Atmosphere {
   }
   get bloomStrength(): number {
     return this.live.bloom;
+  }
+  get saturation(): number {
+    return this.live.saturation;
+  }
+  get fireflies(): { strength: number; color: THREE.Color } {
+    return { strength: this.live.fireflies, color: this.live.fireflyColor };
+  }
+  get grade(): { mul: THREE.Color; lift: THREE.Color } {
+    return { mul: this.live.gradeMul, lift: this.live.gradeLift };
   }
   get fogColor(): THREE.Color {
     return this.live.fog;

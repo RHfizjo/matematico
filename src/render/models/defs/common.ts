@@ -76,7 +76,7 @@ export function sparkles(
   o: { count: number; radius: number; y0: number; y1: number; size?: number; colors?: string[]; seed?: number },
 ): void {
   const colors = o.colors ?? ['#ffe27a', '#ffb3e6', '#ffffff'];
-  const size = o.size ?? 0.07;
+  const size = o.size ?? 0.055;
   let s = o.seed ?? 7;
   const rnd = (): number => {
     s = (s * 16807) % 2147483647;
@@ -88,7 +88,7 @@ export function sparkles(
     const y = o.y0 + (o.y1 - o.y0) * rnd();
     const c = colors[i % colors.length] ?? '#ffffff';
     const k = size * (0.7 + rnd() * 0.6);
-    b.box('sparkles', [k, k, k], [Math.cos(a) * r, y, Math.sin(a) * r], c, { glow: 2.6, rot: [0.6, 0.8, 0.3] });
+    b.box('sparkles', [k, k, k], [Math.cos(a) * r, y, Math.sin(a) * r], c, { glow: 2.0, rot: [0.6, 0.8, 0.3] });
   }
 }
 

@@ -1,0 +1,140 @@
+/* Panel odpowiedzi: wielkie działanie, okienko niewiadomej, duże przyciski, klawiatura, Oś, pierścień czasu. */
+
+.ans-modal { background: radial-gradient(ellipse at 50% 45%, rgba(20, 28, 50, 0.12), rgba(20, 28, 50, 0.42)); }
+.ans-panel {
+  position: relative; width: min(920px, calc(100vw - 2 * var(--gutter) - 60px));
+  padding: 62px 44px 40px; display: flex; flex-direction: column; align-items: center; gap: 28px;
+  border-width: 5px; border-radius: 36px; background: linear-gradient(#fffef9, #fff4da);
+  box-shadow: 0 8px 0 var(--ink), 0 24px 60px rgba(20, 28, 50, 0.35);
+}
+.ans-panel.has-card { margin-left: 120px; }
+.ans-panel.is-good { animation: flash-good 600ms ease; }
+.ans-panel.is-bad { animation: none; }
+@keyframes flash-good {
+  0% { box-shadow: 0 8px 0 var(--ink), 0 0 0 0 rgba(60, 207, 110, 0.8); }
+  100% { box-shadow: 0 8px 0 var(--ink), 0 0 0 40px rgba(60, 207, 110, 0); }
+}
+
+.ans-title {
+  position: absolute; top: -34px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 140px);
+  padding: 10px 34px 11px; background: linear-gradient(#5db8ff, var(--primary)); color: #fff;
+  border: 4px solid var(--ink); border-radius: 20px; box-shadow: 0 4px 0 var(--ink);
+  font: 900 32px/1.1 var(--font); white-space: nowrap; text-shadow: 0 2px 0 rgba(31, 42, 68, 0.35);
+}
+.ans-title span { display: block; overflow: hidden; text-overflow: ellipsis; }
+.ans-kind-catch .ans-title { background: linear-gradient(#63de8a, var(--good)); }
+.ans-kind-feed .ans-title { background: linear-gradient(#ffb56b, #ff8c42); }
+.ans-kind-chest .ans-title { background: linear-gradient(#ffd75e, #f2a900); }
+.ans-kind-calibration .ans-title { background: linear-gradient(#a08cff, var(--rare)); }
+
+.ans-card { position: absolute; left: -150px; top: 30px; transform: rotate(-9deg); animation: card-land 460ms cubic-bezier(0.2, 1.3, 0.4, 1) both; z-index: 2; }
+.ans-card .card { box-shadow: 0 6px 0 rgba(31, 42, 68, 0.3), 0 16px 30px rgba(20, 28, 50, 0.35); }
+@keyframes card-land { from { opacity: 0; transform: translate(80px, 260px) rotate(0deg) scale(1.4); } to { opacity: 1; transform: rotate(-9deg); } }
+
+/* Działanie */
+.ans-taskcol { display: flex; flex-direction: column; align-items: center; gap: 22px; width: 100%; }
+.task-text {
+  display: flex; align-items: center; justify-content: center; gap: 0.26em; white-space: nowrap;
+  font: 900 var(--fs-xxl) / 1 var(--font); color: var(--ink); letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums; min-height: 1.3em;
+}
+.task-text.long { font-size: 74px; }
+.task-text.xlong { font-size: 62px; }
+.task-op { color: #ff7a45; }
+.task-eq { color: var(--ink-soft); }
+.task-slot {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 1.5em; height: 1.25em; padding: 0 0.14em;
+  border: 6px dashed var(--primary); border-radius: 0.24em; background: #e6f4ff; color: var(--primary-dark);
+  transition: background 200ms, border-color 200ms, color 200ms;
+}
+.task-slot.is-empty { animation: slot-breathe 1.8s ease-in-out infinite; }
+.task-slot.is-empty .task-slot-v { opacity: 0.4; }
+.task-slot.is-typing { border-style: solid; background: #fff; }
+.task-slot.is-good { border-style: solid; border-color: var(--good-dark); background: #d6ffe2; color: #16863f; animation: pop 420ms cubic-bezier(0.2, 1.4, 0.4, 1); }
+.task-slot.is-bad { border-style: solid; border-color: #f25c5c; background: #ffe4e4; color: #d23a3a; }
+.task-slot.shake { animation: shake 420ms ease; }
+@keyframes slot-breathe { 0%, 100% { box-shadow: 0 0 0 0 rgba(63, 167, 255, 0.45); } 50% { box-shadow: 0 0 0 10px rgba(63, 167, 255, 0); } }
+
+/* Odpowiedzi (wybór) */
+.ans-options { display: flex; gap: 22px; justify-content: center; width: 100%; }
+.ui-root .ans-opt {
+  flex: 1 1 0; max-width: 190px; min-width: 140px; height: 140px; padding: 0;
+  font: 900 66px/1 var(--font); color: var(--ink); background: linear-gradient(#ffffff, #f4f7ff);
+  border-width: 4px; border-radius: 28px;
+  box-shadow: inset 0 -9px 0 rgba(31, 42, 68, 0.08), 0 7px 0 var(--ink);
+  transition: transform 180ms cubic-bezier(0.2, 1.4, 0.4, 1), opacity 200ms ease, box-shadow 120ms, background 150ms;
+}
+.ui-root .ans-opt.is-pressed { transform: translateY(6px); box-shadow: inset 0 -4px 0 rgba(31, 42, 68, 0.08), 0 1px 0 var(--ink); }
+.ans-panel.is-locked .ans-opt, .ans-panel.is-locked .ans-key { opacity: 0.45; transform: scale(0.94); }
+.ui-root .ans-opt.is-correct { background: linear-gradient(#63de8a, var(--good)); color: #fff; animation: pop 420ms cubic-bezier(0.2, 1.4, 0.4, 1); text-shadow: 0 3px 0 rgba(31, 42, 68, 0.35); }
+.ui-root .ans-opt.is-wrong { background: linear-gradient(#ffa0a0, #ff7272); color: #fff; text-shadow: 0 3px 0 rgba(31, 42, 68, 0.35); }
+.ui-root .ans-opt.is-wrong.shake { animation: shake 420ms ease; }
+.ui-root .ans-opt.is-out { opacity: 0.3; filter: grayscale(1); transform: scale(0.92); box-shadow: 0 2px 0 var(--ink); }
+.ui-root .ans-opt.is-reveal { box-shadow: 0 0 0 7px var(--good), 0 7px 0 var(--ink); color: #16863f; animation: pulse 700ms ease-in-out infinite; }
+.ans-panel.is-bad .ans-opt:not(.is-wrong):not(.is-reveal) { opacity: 0.55; }
+
+/* Klawiatura (typed) */
+.ans-panel.is-typed { width: min(1060px, calc(100vw - 2 * var(--gutter))); padding: 58px 40px 36px; }
+.ans-panel.is-typed.has-card { width: min(1000px, calc(100vw - 2 * var(--gutter) - 140px)); }
+.ans-body { width: 100%; display: flex; justify-content: center; }
+.ans-panel.is-typed .ans-body { gap: 36px; align-items: center; }
+.ans-panel.is-typed .ans-taskcol { flex: 1; min-width: 0; }
+.ans-keypad { flex: none; display: grid; grid-template-columns: repeat(3, 124px); grid-auto-rows: 100px; gap: 12px; }
+.ui-root .ans-key {
+  min-height: 0; padding: 0; border-radius: 22px; border-width: 4px; background: linear-gradient(#fff, #f4f7ff);
+  font: 900 50px/1 var(--font); transition: transform 180ms, opacity 200ms, box-shadow 120ms;
+}
+.ans-key .icon { width: 56px; height: 56px; }
+.ui-root .ans-key.key-ok { background: linear-gradient(#63de8a, var(--good)); }
+.ui-root .ans-key.key-back { background: linear-gradient(#fff3e3, #ffe0bd); }
+.ui-root .ans-key.key-ok:disabled { filter: grayscale(0.7) opacity(0.5); }
+.ui-root .ans-key.is-correct { animation: pop 420ms; }
+.ui-root .ans-key.is-wrong { background: linear-gradient(#ffa0a0, #ff7272); }
+.ans-panel.is-typed .task-text { font-size: 80px; }
+.ans-panel.is-typed .task-text.long { font-size: 68px; }
+.ans-panel.is-typed .task-text.xlong { font-size: 56px; }
+
+/* Pomoc „Oś” */
+.ui-root .ans-os {
+  position: absolute; right: 26px; top: 52px; width: 104px; height: 104px; min-height: 0; padding: 6px 0 4px;
+  flex-direction: column; gap: 0; border-radius: 26px; background: linear-gradient(#eaf6ff, #cde9ff);
+  font: 900 24px/1 var(--font);
+}
+.ans-os .ans-os-ic { width: 54px; height: 44px; }
+.ans-os-n {
+  position: absolute; top: -12px; right: -12px; min-width: 38px; height: 34px; padding: 0 6px; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center; background: #ffd23f; border: 3px solid var(--ink);
+  font: 900 18px/1 var(--font);
+}
+.ui-root .ans-os.is-used { filter: grayscale(0.6) opacity(0.55); }
+.ans-panel.is-typed .ans-os { top: auto; bottom: 28px; right: auto; left: 30px; }
+
+.ans-help {
+  width: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 20px 14px;
+  background: #eaf6ff; border: 3px solid #a9d6f7; border-radius: 22px;
+}
+.ans-help.is-hidden { display: none; }
+.ans-help.pop { animation: help-in 360ms cubic-bezier(0.2, 1.3, 0.4, 1); }
+@keyframes help-in { from { opacity: 0; transform: translateY(-10px) scale(0.96); } to { opacity: 1; transform: none; } }
+.ans-help.help-retry { background: #fff4df; border-color: #ffcb7a; }
+.ans-help-title { display: flex; align-items: center; gap: 10px; font: 900 27px/1.15 var(--font); }
+.ans-help-title .icon { width: 36px; height: 36px; }
+.ans-help-step { font: 800 25px/1.25 var(--font); text-align: center; }
+.ans-help-again { font: 900 21px/1.1 var(--font); color: #d9731a; }
+.ans-help-viz { width: 100%; display: flex; justify-content: center; }
+.ans-help-viz .nl { width: min(600px, 100%); height: auto; }
+
+/* Pierścień czasu (bez liczb) */
+.ans-ring {
+  position: absolute; top: -34px; right: -34px; width: 100px; height: 100px; padding: 6px; border-radius: 50%;
+  background: #fff; border: 4px solid var(--ink); box-shadow: 0 4px 0 var(--ink); z-index: 2;
+}
+.ans-ring svg { width: 100%; height: 100%; display: block; }
+.ring-bg { fill: none; stroke: #e2edf6; stroke-width: 14; }
+.ring-fg {
+  fill: none; stroke: #33c1ae; stroke-width: 14; stroke-linecap: round; stroke-dasharray: 1 1; stroke-dashoffset: 0;
+  transform: rotate(-90deg) scaleX(-1); transform-origin: 50% 50%;
+}
+.ring-core { fill: #ffd23f; stroke: var(--ink); stroke-width: 4; }
+.ans-ring.is-closed .ring-core { fill: #d5dbe6; }
+.ans-ring.is-closed { animation: wiggle 900ms ease-in-out 2; }

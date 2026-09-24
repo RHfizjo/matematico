@@ -1,9 +1,21 @@
 /**
  * Modele kostkowe i efekty (render/models). Publiczne API:
- *   createModelFactory(): ModelFactory   — tworzy ModelRig dla każdego ModelId
+ *   createModelFactory(): ModelFactory   — tworzy ModelRig dla każdego ModelId (lista: factory.ids)
  *   createFx(): FxApi                    — cząsteczki + przemiana brainrot → brainglam
- * Wszystkie modele są budowane w kodzie z kostek; animacje proceduralne na nazwanych częściach.
- * Nieznane identyfikatory (np. przyszłe stworki) dostają zastępczy model „?” zamiast wyjątku.
+ *
+ * Uwagi dla render/:
+ *  - Modele budowane w kodzie z kostek; kostki części łączone w jedną siatkę z kolorami w wierzchołkach
+ *    (wspólny materiał bazowy), świecące kostki — wspólne materiały emisyjne per kolor. Zwykle 5–25 siatek na model.
+ *  - Hierarchia: rig.root (TY: pozycja, obrót Y, skala) → 'fx' (przemiana) → 'all' (animacja) → części.
+ *    Nie ruszaj dzieci root — animacja nadpisuje je co klatkę.
+ *  - 'hide' trzyma model schowany (current === 'hide') do następnego play() (zwykle 'appear').
+ *    Rekwizyty: 'open' trzyma otwarty stan (skrzynia, brama); pnącze: 'hit' = zwiędnięcie (trzyma).
+ *  - Bohater: miecz jest w części o nazwie 'weapon' (root.getObjectByName('weapon').visible = false, by schować).
+ *  - Emisja jest dobrana pod bloom z progiem luminancji ok. 1.0 (HDR, np. HalfFloat) i mapowanie ACES/AgX
+ *    (harness dev/models.html: ACES + bloom mipmap, próg 1.0).
+ *  - Cząstki: ParticleSystem.object dodaj do sceny (najlepiej w korzeniu); burst(pos) w układzie jego rodzica.
+ *  - playTransform: zegarem jest update() modelu `to` (czas świata); gdy nikt go nie aktualizuje — zapas na rAF.
+ *  - Nieznane identyfikatory (np. przyszłe stworki) dostają zastępczy model „?” zamiast wyjątku.
  */
 import type { ModelId, PropKind } from '../../game/contracts';
 import type { FxApi, ModelFactory, ModelRig, TransformContext } from './types';

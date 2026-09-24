@@ -171,7 +171,7 @@ export function buildBase(seed: number): SceneBuild {
   b.disc(G.x, G.z, 6.2, (x, z, d) => {
     if (d > 5.4) b.setTop(x, z, B.flowerBed);
     else if (d > 4.7 || d < 1.8) b.setTop(x, z, B.quartz);
-    else b.setTop(x, z, (Math.floor(x) + Math.floor(z)) % 2 === 0 ? B.path : B.gravel);
+    else b.setTop(x, z, B.planks);
   });
   b.reserve(G.x, G.z, 6.3);
   b.prop('prop:podium', G.x, G.z, { collider: 1.4 });
@@ -235,21 +235,22 @@ export function buildBase(seed: number): SceneBuild {
   b.disc(portal.x, portal.z, 3, (x, z) => b.setTop(x, z, B.stoneBrick));
   b.prop('prop:portal', portal.x, portal.z - 0.6, { facing: FACING_CAMERA * 0.5, collider: false });
   b.poi('portal-meadow', 'portal', portal.x, portal.z, 2.2);
-  for (const [ox, oz] of [
-    [-2.6, -1],
-    [2.4, -1.4],
-    [-2, 1.8],
+  for (const [ox, oz, col] of [
+    [-2.6, -1, '#a58dff'],
+    [2.4, -1.4, '#7fe3ff'],
+    [-2, 1.8, '#ff9ee0'],
+    [2.2, 1.5, '#a58dff'],
   ] as const)
-    b.world.set(Math.floor(portal.x + ox), S + 1, Math.floor(portal.z + oz), B.crystal);
-  b.world.set(Math.floor(portal.x - 2.6), S + 2, Math.floor(portal.z - 1), B.crystal);
+    for (let k = 0; k < 4; k++) b.foliageAt('crystal', portal.x + ox + b.rng.range(-0.5, 0.5), portal.z + oz + b.rng.range(-0.5, 0.5), col, b.rng.range(0.9, 1.6));
   b.light({ x: portal.x, y: S + 2.5, z: portal.z - 0.5, color: '#a58dff', intensity: 5, distance: 8 });
   b.reserve(portal.x, portal.z, 3.2);
 
   // ── Stół z kartami + Handlarz Kartonini (SE).
   const table = { x: 10, z: 13 };
   cardTable(b, table.x, table.z);
-  b.prop('npc:kartonini', table.x + 0.2, table.z - 1.5, { facing: FACING_CAMERA * 0.6, poi: 'station-karty', collider: 0.6 });
-  b.poi('station-karty', 'station', table.x, table.z + 2.2, 2.2);
+  // Kartonini stoi obok stołu (od strony kamery widać go w całości).
+  b.prop('npc:kartonini', table.x + 3.1, table.z + 0.3, { facing: FACING_CAMERA - 0.5, poi: 'station-karty', collider: 0.6 });
+  b.poi('station-karty', 'station', table.x + 0.8, table.z + 2.2, 2.4);
   b.reserve(table.x, table.z, 3.2);
 
   // ── Latarnie i drogowskaz.
@@ -268,15 +269,20 @@ export function buildBase(seed: number): SceneBuild {
   const treeKinds = ['oak', 'oak', 'blossom', 'birch', 'fruit', 'autumn', 'pine', 'bush', 'bush'] as const;
   const rng = b.rng;
   let placed = 0;
-  for (let attempt = 0; attempt < 400 && placed < 26; attempt++) {
+  // Stacje z zapasem — drzewa tylko na obrzeżach, nie między stacjami a kamerą.
+  for (const id of ['station-zagroda', 'station-skarbiec', 'station-kuznia', 'station-galeria', 'station-tablica', 'station-karty', 'portal-meadow']) {
+    const p = b.pois.find((q) => q.id === id);
+    if (p) b.reserve(p.pos.x, p.pos.z, 3.5);
+  }
+  for (let attempt = 0; attempt < 600 && placed < 24; attempt++) {
     const a = rng.range(0, Math.PI * 2);
-    const rr = rng.range(R * 0.55, R * 0.92);
+    const rr = rng.range(R * 0.78, R * 0.95);
     const x = Math.cos(a) * rr;
     const z = Math.sin(a) * rr;
     if (!b.isFree(x, z, 2)) continue;
     if (b.topId(x, z) !== B.grass) continue;
-    // Od strony kamery (południe) niżej: krzewy zamiast wysokich drzew.
-    const south = z > 12;
+    // Od strony kamery (południe i wschód/zachód przy stacjach) niżej: krzewy zamiast wysokich drzew.
+    const south = z > 2;
     const kind = south ? 'bush' : (treeKinds[Math.floor(rng.next() * treeKinds.length)] ?? 'oak');
     b.tree(kind, x, z, { reserve: kind === 'bush' ? 1.2 : 2 });
     placed++;
@@ -290,7 +296,7 @@ export function buildBase(seed: number): SceneBuild {
   ] as const)
     if (b.isFree(x, z, 0.5)) b.tree('bush', x, z, { reserve: 1 });
 
-  b.scatterFoliage(-24, 24, -24, 24, 0.55, 0.35, [B.grass]);
+  b.scatterFoliage(-24, 24, -24, 24, 0.75, 0.4, [B.grass]);
 
   const bounds = { minX: -24, maxX: 24, minZ: -24, maxZ: 24 };
   return b.finish({

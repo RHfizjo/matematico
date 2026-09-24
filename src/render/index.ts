@@ -29,9 +29,11 @@ import { pickQualityFromBenchmark, QUALITY_PRESETS, shouldRenderFrame } from './
 import { buildScene, type SceneBuild } from './scenes';
 import { Atmosphere } from './world/atmosphere';
 import { Ground } from './world/ground';
-import { applyTreeFade, buildSceneMeshes, type SceneMeshes } from './world/sceneMeshes';
+import { applyTreeFade, buildSceneMeshes, clearTreeCache, type SceneMeshes } from './world/sceneMeshes';
 import { worldUniforms } from './voxel/materials';
 import { damp } from './util/rng';
+import { segmentHitsVoxels } from './world/occlusion';
+import { Fireflies } from './world/fireflies';
 
 export interface CreateRenderOptions {
   container: HTMLElement;
@@ -67,6 +69,9 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
   const particles: ParticleSystem = fx.createParticles();
   scene.add(particles.object);
   const portraits = new PortraitRenderer(engine.renderer, models);
+  const fireflies = new Fireflies();
+  scene.add(fireflies.points);
+  const fireflyColor = new THREE.Color();
 
   let meshes: SceneMeshes | null = null;
   let build: SceneBuild | null = null;
@@ -95,6 +100,8 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
   const tmpV = new THREE.Vector3();
   const focus = new THREE.Vector3();
   const ray = new THREE.Ray();
+  const segA = new THREE.Vector3();
+  const segB = new THREE.Vector3();
 
   const lookup = {
     position(id: number): THREE.Vector3 | null {
@@ -188,8 +195,13 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
             ray.direction.copy(tmpV).sub(from).normalize();
             const hit = ray.intersectBox(t.box, focus);
             if (hit && from.distanceTo(hit) < segLen - 0.3) {
-              target = 0.3;
-              break;
+              // Dokładnie: czy odcinek kamera → bohater przechodzi przez kostki drzewa?
+              const a = segA.copy(from).applyMatrix4(t.worldToVol);
+              const b2 = segB.copy(tmpV).addScaledVector(ray.direction, -0.4).applyMatrix4(t.worldToVol);
+              if (segmentHitsVoxels(t.vol.dense, t.vol.sx, t.vol.sy, t.vol.sz, a.x, a.y, a.z, b2.x, b2.y, b2.z)) {
+                target = 0.3;
+                break;
+              }
             }
           }
         }
@@ -237,6 +249,12 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
     }
     updateTreeFade(dtReal);
     updateLights();
+    {
+      const ff = atmosphere.fireflies;
+      // Kolor HDR (bloom).
+      fireflyColor.copy(ff.color).multiplyScalar(2.6);
+      fireflies.update(dt, cam.target, ff.strength, engine.renderer.getPixelRatio(), (x, z) => (ground ? ground.heightAt(x, z) : NaN), fireflyColor);
+    }
     for (const s of meshes?.shafts ?? []) s.visible = true;
     for (const cb of callbacks) {
       try {
@@ -246,6 +264,9 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
       }
     }
     engine.setBloomStrength(atmosphere.bloomStrength);
+    engine.setSaturation(atmosphere.saturation);
+    const gr = atmosphere.grade;
+    engine.setGrade(gr.mul, gr.lift);
     const info = engine.renderer.info;
     info.reset();
     engine.render(dtReal);
@@ -335,7 +356,7 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
     atmosphere.setPalette(b.outdoor ? timeOfDay : (b.palette ?? 'cave'), 0);
     if (b.outdoor) {
       const isl = b.island;
-      atmosphere.buildClouds(new THREE.Vector3(isl.cx, 0, isl.cz), isl.radius * 1.6, isl.bottomY + 2, isl.surfaceY + 22, req.seed);
+      atmosphere.buildClouds(new THREE.Vector3(isl.cx, 0, isl.cz), isl.radius, isl.surfaceY, req.seed);
     }
     engine.renderer.setClearColor(atmosphere.fogColor, 1);
 
@@ -357,6 +378,13 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
       }
     }
 
+    // Kompilacja shaderów przed pierwszą klatką (bez przycięcia po wczytaniu sceny).
+    try {
+      await engine.renderer.compileAsync(scene, cam.camera);
+    } catch {
+      /* brak KHR_parallel_shader_compile — skompiluje się przy renderze */
+    }
+    if (token !== loadToken) throw new Error('loadScene: przerwane przez nowsze żądanie');
     // Kamera: od razu nad punktem startu.
     cam.lookAtPoint(new THREE.Vector3(b.spawn.x, g.heightAt(b.spawn.x, b.spawn.z) || b.island.surfaceY + 1, b.spawn.z));
     cam.snap();
@@ -555,8 +583,10 @@ export function createRender(opts: CreateRenderOptions): RenderApi & { readonly 
         /* ignore */
       }
       atmosphere.dispose();
+      fireflies.dispose();
       portraits.dispose();
       engine.dispose();
+      clearTreeCache();
       callbacks.clear();
     },
 

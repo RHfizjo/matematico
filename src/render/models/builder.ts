@@ -20,7 +20,7 @@ export interface BoxOpts {
   shade?: number;
   /** Świecenie: kostka dostaje wspólny materiał emisyjny w swoim kolorze o tej intensywności. */
   glow?: number;
-  /** Osobna siatka o tej nazwie (do niezależnej animacji / podmiany materiału). */
+  /** Osobna siatka o tej nazwie (do niezależnej animacji / podmiany materiału); kostki o tej samej nazwie w jednej części łączą się. */
   name?: string;
   /** Jawny (wspólny) materiał — osobna siatka. */
   mat?: THREE.MeshLambertMaterial;
@@ -217,13 +217,12 @@ export class ModelBuilder {
       }
       // Podział kostek na siatki.
       const buckets = new Map<string, { boxes: BoxRec[]; mat: THREE.MeshLambertMaterial; kind: 'base' | 'other' | 'group'; name?: string; group?: string }>();
-      let uniq = 0;
       for (const b of rec.boxes) {
         let key: string;
         let mat: THREE.MeshLambertMaterial;
         let kind: 'base' | 'other' | 'group' = 'other';
         if (b.opts.name) {
-          key = `name:${b.opts.name}:${uniq++}`;
+          key = `name:${b.opts.name}`;
           mat = b.opts.mat ?? (b.opts.glow !== undefined ? glowMaterial(`#${b.color.getHexString()}`, b.opts.glow) : this.base);
           if (mat === this.base) kind = 'base';
         } else if (b.opts.group) {
