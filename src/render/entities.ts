@@ -39,6 +39,11 @@ export interface Entity {
   move: MoveState | null;
   /** Animacja lokomocji ustawiona przez render (walk/idle). */
   loco: AnimName | null;
+  /**
+   * Animacja „spoczynku” — domyślnie idle; pętla zlecona z zewnątrz (dance, sleep, windup) trwa w postoju
+   * (także przy wędrowaniu) aż do następnego kroku.
+   */
+  idleAnim: AnimName;
   /** Trwa jednorazowa animacja zlecona z zewnątrz — lokomocja jej nie przerywa. */
   busy: number;
   blob: THREE.Mesh;
@@ -134,6 +139,7 @@ export class EntityManager {
       wander: null,
       move: null,
       loco: null,
+      idleAnim: 'idle',
       busy: 0,
       blob,
       ring: null,
@@ -210,8 +216,14 @@ export class EntityManager {
     const e = this.list.get(id);
     if (!e) return Promise.resolve();
     const loop = LOOP_ANIMS.has(anim);
-    if (!loop) e.busy++;
-    e.loco = null;
+    if (loop) {
+      // Pętla to nowy stan spoczynku/chodu — lokomocja (wędrowanie) jej nie nadpisze w postoju.
+      if (anim !== 'walk') e.idleAnim = anim;
+      e.loco = anim === 'walk' ? 'walk' : 'idle';
+    } else {
+      e.busy++;
+      e.loco = null;
+    }
     let p: Promise<void>;
     try {
       p = e.rig.play(anim, opts);
@@ -228,8 +240,9 @@ export class EntityManager {
     if (e.busy > 0) return;
     if (e.loco === anim) return;
     e.loco = anim;
+    if (anim === 'walk') e.idleAnim = 'idle';
     try {
-      void e.rig.play(anim, speed ? { speed } : undefined);
+      void e.rig.play(anim === 'idle' ? e.idleAnim : anim, speed ? { speed } : undefined);
     } catch {
       /* model bez tej animacji */
     }

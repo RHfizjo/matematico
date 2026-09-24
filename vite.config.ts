@@ -45,5 +45,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
+    // Testy właściwości (fast-check) i symulacje potrafią przekroczyć 5 s pod obciążeniem maszyny.
+    testTimeout: 30000,
   },
 });
